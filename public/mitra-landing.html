@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuciMesin | Jadi Mitra B2B</title>
+<style>
+  :root{
+    --navy:#102b4d;
+    --blue-dark:#0d2340;
+    --blue-darker:#08182b;
+    --blue:#2563eb;
+    --blue-mid:#1d4ed8;
+    --red:#d62828;
+    --red-dark:#a61b1b;
+    --ink:#172638;
+    --muted:#53657c;
+    --bg-soft:#f5f7fb;
+    --border:#dfe7f3;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg,#f5f8ff 0%,#fff7f7 100%);
+    line-height:1.55;
+  }
+  a{text-decoration:none;color:inherit;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;border-bottom:1px solid rgba(118,133,127,.18);background:rgba(255,255,255,.88);backdrop-filter:blur(10px);box-shadow:0 8px 20px rgba(24,39,32,.03);position:sticky;top:0;z-index:50;
+  }
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:38px;height:38px;border-radius:10px;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .logo-text{line-height:1.1;}
+  .logo-text .name{font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-0.2px;}
+  .logo-text .tag{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--red);}
+
+  nav{display:flex;align-items:center;gap:34px;}
+  nav a{font-size:14.5px;font-weight:600;color:#3a4a43;transition:color .15s;}
+  nav a.active{color:var(--blue);}
+  nav a:hover{color:var(--blue);}
+
+  .header-actions{display:flex;align-items:center;gap:12px;}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    border:none;border-radius:8px;padding:14px 24px;font-weight:700;font-size:13.5px;letter-spacing:.2px;cursor:pointer;
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 10px 18px rgba(214,40,40,.22);}
+  .btn-primary:hover{filter:brightness(1.04);}
+  .btn-secondary{background:linear-gradient(135deg,var(--blue),var(--blue-mid));color:#fff;box-shadow:0 10px 18px rgba(37,99,235,.2);}
+  .btn-secondary:hover{filter:brightness(1.04);}
+
+  .hero{
+    background:linear-gradient(180deg,var(--blue-dark) 0%,var(--blue-darker) 100%);
+    color:#fff;padding:72px 24px 96px;
+  }
+  .hero-wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.25fr 0.9fr;gap:32px;align-items:center;}
+  .badge{display:inline-block;background:var(--red);color:#fff;font-size:12.5px;font-weight:700;padding:7px 18px;border-radius:20px;margin-bottom:24px;letter-spacing:.2px;}
+  .hero h1{font-size:44px;line-height:1.1;font-weight:800;max-width:640px;margin-bottom:18px;letter-spacing:-0.5px;}
+  .hero p{font-size:16px;max-width:620px;color:#dfeee8;margin-bottom:30px;}
+  .hero-actions{display:flex;gap:16px;flex-wrap:wrap;}
+
+  .stack-card{
+    background:rgba(255,255,255,0.08);backdrop-filter:blur(2px);
+    border:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:28px;
+    box-shadow:0 24px 50px rgba(16,29,24,.2);
+  }
+  .mini-stat{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.12);}
+  .mini-stat:last-child{border-bottom:none;}
+  .mini-stat .label{font-size:12px;color:#dfeee8;}
+  .mini-stat .val{font-size:18px;font-weight:800;}
+
+  .section{padding:72px 24px;}
+  .section-title{text-align:center;margin-bottom:36px;}
+  .section-title h2{font-size:30px;font-weight:800;letter-spacing:-0.3px;}
+  .section-title p{font-size:14.5px;color:var(--muted);max-width:560px;margin:10px auto 0;}
+
+  .benefits-grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .feature-card{background:linear-gradient(180deg,#ffffff 0%,#fbfcfb 100%);border:1px solid rgba(162,174,168,.42);border-radius:12px;padding:28px 24px;box-shadow:0 10px 24px rgba(17,32,27,.04);transition:all .18s ease;}
+  .feature-card:hover{transform:translateY(-2px);box-shadow:0 16px 30px rgba(17,32,27,.08);}
+  .feature-icon{width:48px;height:48px;border-radius:13px;background:#eaf1ff;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:20px;}
+  .feature-card h3{font-size:18px;margin-bottom:10px;font-weight:800;}
+  .feature-card p{font-size:14px;color:var(--muted);}
+
+  .steps{max-width:980px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .step{background:var(--bg-soft);border:1px solid var(--border);border-radius:14px;padding:26px 22px;position:relative;}
+  .step-no{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;font-weight:800;margin-bottom:16px;}
+  .step h3{font-size:18px;margin-bottom:8px;font-weight:800;}
+  .step p{font-size:14px;color:var(--muted);}
+
+  .pricing-wrap{max-width:980px;margin:0 auto;background:var(--bg-soft);border:1px solid var(--border);border-radius:18px;padding:28px;}
+  .pricing-head{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px;}
+  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .price-card{background:linear-gradient(180deg,#ffffff 0%,#fbfcfb 100%);border:1px solid rgba(162,174,168,.42);border-radius:12px;padding:22px;box-shadow:0 10px 24px rgba(17,32,27,.04);}
+  .price-card.featured{border:2px solid var(--blue);}
+  .price-card .tag{display:inline-block;padding:5px 10px;border-radius:999px;background:#eaf1ff;color:var(--blue);font-size:10px;font-weight:800;letter-spacing:.4px;margin-bottom:14px;}
+  .price-card h3{font-size:18px;font-weight:800;margin-bottom:8px;}
+  .price-card .price{font-size:30px;font-weight:800;color:var(--blue);margin-bottom:10px;}
+  .price-card ul{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:18px;}
+  .price-card li{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;}
+  .price-card .check{color:var(--red);font-weight:800;}
+
+  .cta{padding:80px 24px 100px;}
+  .cta-box{max-width:980px;margin:0 auto;background:linear-gradient(135deg,var(--blue-dark),var(--blue));color:#fff;border-radius:18px;padding:42px 30px;text-align:center;}
+  .cta-box h3{font-size:30px;font-weight:800;letter-spacing:-0.25px;margin-bottom:12px;}
+  .cta-box p{font-size:15px;color:#dfeee8;max-width:620px;margin:0 auto 26px;}
+  .cta-box .btn{background:#fff;color:var(--blue-dark);}
+  .cta-box .btn:hover{background:#eef4ff;}
+
+  @media (max-width:900px){
+    header{flex-wrap:wrap;gap:12px;}
+    nav{display:flex;order:3;width:100%;justify-content:center;flex-wrap:wrap;gap:12px 20px;}
+    nav a{font-size:13px;}
+    .hero-wrap,.benefits-grid,.steps,.pricing-grid{grid-template-columns:1fr;}
+    .hero h1{font-size:34px;}
+    .pricing-head{flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚗</div>
+    <div class="logo-text">
+      <div class="name">CuciMesin</div>
+      <div class="tag">CARWASH</div>
+    </div>
+  </div>
+  <nav>
+    <a href="/index.html">Beranda</a>
+    <a href="/layanan.html">Layanan</a>
+    <a href="/booking.html">Booking Online</a>
+    <a href="/tentang.html">Tentang Kami</a>
+    <a href="/kontak.html">Kontak</a>
+    <a href="/mitra-landing.html" class="active">Jadi Mitra</a>
+  </nav>
+  <div class="header-actions">
+    <a class="btn btn-primary" href="/portal-mitra.html">Daftar Mitra</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-wrap">
+    <div>
+      <span class="badge">#B2B Partnership</span>
+      <h1>Tingkatkan layanan showroom Anda bersama CuciMesin.</h1>
+      <p>Jadilah mitra resmi kami untuk mengelola armada, memperoleh diskon layanan, memantau invoice, dan memastikan kualitas pengerjaan mesin kendaraan tetap aman dan premium.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/portal-mitra.html">Ajukan Kemitraan</a>
+        <a class="btn btn-secondary" href="/booking.html">Lihat Booking</a>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="mini-stat">
+        <span class="label">Jumlah mitra aktif</span>
+        <span class="val">42+</span>
+      </div>
+      <div class="mini-stat">
+        <span class="label">Unit terlayani</span>
+        <span class="val">1.280</span>
+      </div>
+      <div class="mini-stat">
+        <span class="label">Diskon B2B</span>
+        <span class="val">15%</span>
+      </div>
+      <div class="mini-stat">
+        <span class="label">Rata-rata rating</span>
+        <span class="val">4.9/5</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title">
+    <h2>Kenapa memilih CuciMesin sebagai mitra?</h2>
+    <p>Platform kemitraan kami dirancang agar showroom, bengkel, dan dealer dapat fokus pada bisnis tanpa repot mengatur operasional layanan pembersihan mesin.</p>
+  </div>
+
+  <div class="benefits-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📈</div>
+      <h3>Proses operasional lebih rapi</h3>
+      <p>Kelola antrean, status SPK, dan pencatatan pekerjaan dari satu dashboard yang jelas dan mudah dibaca.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>Standar kualitas terjamin</h3>
+      <p>Sistem kerja kami mengikuti prosedur masking elektrikal dan pembersihan mesin yang aman untuk kendaraan modern.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💸</div>
+      <h3>Invoice &amp; pembayaran lebih tertata</h3>
+      <p>Setiap transaksi tercatat otomatis, sehingga proses tagihan dan rekap bulanan menjadi lebih efisien.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title">
+    <h2>Bagaimana cara bergabung?</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-no">1</div>
+      <h3>Daftar akun mitra</h3>
+      <p>Isi profil showroom, nama PIC, email bisnis, dan password portal untuk memulai pendaftaran.</p>
+    </div>
+    <div class="step">
+      <div class="step-no">2</div>
+      <h3>Verifikasi &amp; onboarding</h3>
+      <p>Tim kami akan memproses profil bisnis Anda dan menyiapkan akses dashboard kemitraan.</p>
+    </div>
+    <div class="step">
+      <div class="step-no">3</div>
+      <h3>Mulai layanan B2B</h3>
+      <p>Gunakan dashboard untuk melihat invoice, status armada, dan pengajuan layanan secara real-time.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title">
+    <h2>Paket kemitraan yang tersedia</h2>
+  </div>
+
+  <div class="pricing-wrap">
+    <div class="pricing-head">
+      <div>
+        <h3 style="font-size:22px;font-weight:800;">Pilih skema sesuai kebutuhan bisnis Anda</h3>
+      </div>
+      <a class="btn btn-secondary" href="/portal-mitra.html">Daftar Sekarang</a>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="tag">STARTER</div>
+        <h3>Showroom Kecil</h3>
+        <div class="price">Rp 0</div>
+        <p style="font-size:13px;color:var(--muted);">Cocok untuk usaha yang mulai mengembangkan layanan detailing mesin.</p>
+        <ul>
+          <li><span class="check">✓</span> Dashboard mitra dasar</li>
+          <li><span class="check">✓</span> Rekap invoice bulanan</li>
+          <li><span class="check">✓</span> Prioritas layanan standar</li>
+        </ul>
+      </div>
+
+      <div class="price-card featured">
+        <div class="tag">POPULAR</div>
+        <h3>Bengkel &amp; Dealer</h3>
+        <div class="price">15% Off</div>
+        <p style="font-size:13px;color:var(--muted);">Skema unggulan untuk operasi layanan berkapasitas tetap.</p>
+        <ul>
+          <li><span class="check">✓</span> Diskon B2B 15%</li>
+          <li><span class="check">✓</span> Dashboard operasional lengkap</li>
+          <li><span class="check">✓</span> Layanan prioritas &amp; support</li>
+        </ul>
+      </div>
+
+      <div class="price-card">
+        <div class="tag">PREMIUM</div>
+        <h3>Fleet / Showroom Besar</h3>
+        <div class="price">Custom</div>
+        <p style="font-size:13px;color:var(--muted);">Untuk kebutuhan volume tinggi dan penanganan armada rutin.</p>
+        <ul>
+          <li><span class="check">✓</span> Skema custom pricing</li>
+          <li><span class="check">✓</span> Support account manager</li>
+          <li><span class="check">✓</span> Integrasi kebutuhan khusus</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="cta-box">
+    <h3>Siap mengembangkan bisnis kendaraan Anda?</h3>
+    <p>Bergabunglah dengan jaringan mitra CuciMesin dan nikmati solusi layanan engine detailing yang lebih terstruktur, cepat, dan profesional.</p>
+    <a class="btn" href="/portal-mitra.html">Daftar Mitra Sekarang</a>
+  </div>
+</section>
+
+</body>
+</html>

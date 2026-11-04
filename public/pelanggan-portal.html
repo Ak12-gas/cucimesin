@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuciMesin — Portal Pelanggan</title>
+<style>
+  :root{
+    --ink:#172638; --muted:#53657c; --bg-soft:#f5f7fb; --border:#dfe7f3;
+    --green-dark:#0d2340; --green-darker:#08182b; --green:#2563eb; --green-mid:#1d4ed8;
+    --green-bg:#eaf1ff; --green-text:#2563eb; --red:#d62828; --red-dark:#a61b1b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:linear-gradient(180deg,#edf3ef 0%, #f3f5f4 100%);font-size:14px;line-height:1.5;}
+  a{text-decoration:none;color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  .btn, .btn-auth, .pkg-opt, .history-row, .user-chip, .card, .cta-box{
+    transition:all .18s ease;
+  }
+
+  /* ===== AUTH ===== */
+  .auth-page{display:none;min-height:100vh;}
+  .auth-page.active{display:flex;}
+  .auth-visual{
+    width:42%;background:linear-gradient(160deg,var(--green-dark),var(--green-darker));
+    color:#fff;padding:48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;
+  }
+  .auth-visual::before{content:'';position:absolute;width:340px;height:340px;border-radius:50%;background:rgba(255,255,255,.05);top:15%;left:-90px;}
+  .auth-visual::after{content:'';position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.04);bottom:-60px;right:-60px;}
+  .auth-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;z-index:1;}
+  .auth-brand .ic{width:30px;height:30px;border-radius:8px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .auth-headline{z-index:1;}
+  .auth-headline h1{font-size:28px;font-weight:800;line-height:1.3;margin-bottom:14px;}
+  .auth-headline p{font-size:13px;color:#cfe0d5;max-width:340px;}
+  .auth-form-side{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;position:relative;}
+  .auth-form-side .back{position:absolute;top:28px;right:36px;font-size:12px;font-weight:700;padding:8px 16px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#fff;box-shadow:0 8px 18px rgba(17,32,27,0.06);}
+  .auth-form{width:100%;max-width:360px;background:#fff;border:1px solid rgba(162,174,168,0.42);border-radius:16px;padding:26px 24px;box-shadow:0 18px 44px rgba(17,32,27,0.08);}
+  .auth-form h2{font-size:21px;font-weight:800;margin-bottom:6px;}
+  .auth-form > p{font-size:12.5px;color:var(--muted);margin-bottom:24px;}
+  .seg-tabs{display:flex;background:var(--bg-soft);border-radius:8px;padding:4px;margin-bottom:22px;}
+  .seg-tabs button{flex:1;border:none;background:none;padding:9px;border-radius:6px;font-size:12.5px;font-weight:700;color:var(--muted);}
+  .seg-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .field input{width:100%;border:1px solid var(--border);background:#fff;border-radius:8px;padding:11px 13px;font-size:13px;color:var(--ink);}
+  .field input::placeholder{color:#a4aca7;}
+  .phone-input{display:flex;gap:8px;}
+  .phone-input .cc{width:52px;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;}
+  .phone-input input{flex:1;}
+  .field-link{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .field-link a{font-size:11.5px;color:var(--green-text);font-weight:700;}
+  .check-row{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:18px;}
+  .check-row b{color:var(--green-text);font-weight:700;}
+  .check-row input{margin-top:2px;}
+  .btn-auth{width:100%;border:none;border-radius:8px;padding:13px;font-weight:700;font-size:13.5px;color:#fff;margin-bottom:16px;background:var(--green-mid);}
+  .btn-auth:hover{background:var(--green);}
+  .auth-foot{text-align:center;font-size:12px;color:var(--muted);}
+  .auth-foot a{color:var(--red);font-weight:700;}
+
+  /* ===== APP ===== */
+  #cust-app{display:none;min-height:100vh;}
+  #cust-app.active{display:block;}
+  header.topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;border-bottom:1px solid rgba(118, 133, 127, 0.18);background:rgba(255,255,255,0.88);backdrop-filter:blur(10px);box-shadow:0 8px 20px rgba(24,39,32,0.03);
+  }
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:36px;height:36px;border-radius:9px;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;}
+  .logo-text{font-size:17px;font-weight:800;color:var(--ink);}
+  .user-chip{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;background:var(--bg-soft);border:1px solid var(--border);border-radius:999px;padding:6px 10px 6px 8px;}
+  .user-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-soft);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--green-text);}
+
+  .cpage{display:none;max-width:1080px;margin:0 auto;padding:32px 32px 70px;}
+  .cpage.active{display:block;}
+  .crumb{font-size:11.5px;color:var(--muted);margin-bottom:16px;}
+  .crumb b{color:var(--ink);}
+  .profile-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
+  .back-link{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#fff;color:var(--ink);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;box-shadow:0 8px 18px rgba(17,32,27,0.04);}
+  .back-link:hover{background:var(--bg-soft);}
+
+  .greet{text-align:center;margin-bottom:28px;}
+  .greet h1{font-size:22px;font-weight:800;margin-bottom:6px;}
+  .greet p{font-size:13px;color:var(--muted);}
+
+  .grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;margin-bottom:22px;}
+  .card{background:linear-gradient(180deg,#ffffff 0%, #fbfcfb 100%);border:1px solid rgba(162,174,168,0.42);border-radius:12px;padding:22px 24px;box-shadow:0 10px 24px rgba(17,32,27,0.04);}
+  .card:hover{box-shadow:0 14px 28px rgba(17,32,27,0.06);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .card-head h3{font-size:15px;font-weight:800;}
+  .card-head a{font-size:12px;font-weight:700;color:var(--green-text);}
+  .status-spk{font-size:11px;color:var(--red);font-weight:700;float:right;}
+  .status-veh{font-size:13.5px;font-weight:700;margin:4px 0 18px;}
+  .progress-track{display:flex;align-items:center;gap:0;margin-bottom:6px;}
+  .p-dot{width:22px;height:22px;border-radius:50%;background:var(--green-mid);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+  .p-dot.mid{background:var(--green-mid);}
+  .p-dot.empty{background:#fff;border:2px solid var(--border);}
+  .p-line{flex:1;height:3px;background:var(--green-mid);}
+  .p-line.off{background:var(--border);}
+  .payment-card{margin-top:18px;border-color:#bfdbfe;background:linear-gradient(180deg,#fff 0%,#f5f9ff 100%);}
+  .payment-order{font-size:12px;color:var(--muted);margin:-8px 0 14px;}
+  .payment-account{padding:12px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:12px;margin:12px 0;}
+  .payment-account b{display:inline-block;min-width:95px;}
+  .payment-account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .payment-steps{padding-left:20px;font-size:11.5px;color:var(--muted);line-height:1.7;margin:12px 0;}
+  .payment-record{padding:14px 0;border-top:1px solid var(--border);}
+  .payment-record:first-of-type{border-top:0;}
+  .payment-upload{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;}
+  .payment-upload input{max-width:100%;font-size:11px;}
+  .payment-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .payment-status{display:inline-block;padding:4px 9px;border-radius:999px;background:var(--green-bg);color:var(--green-text);font-size:10.5px;font-weight:800;}
+  .payment-status.pending{background:#fff4d6;color:#8a6d1a;}
+  .payment-status.rejected{background:#fdecec;color:var(--red);}
+  .payment-status.unpaid{background:#eef0f2;color:var(--muted);}
+  .payment-feedback{min-height:18px;font-size:11px;color:var(--green-text);font-weight:700;margin-top:12px;}
+  .payment-note{font-size:11px;color:var(--muted);margin-top:4px;}
+  .payment-amount{font-size:14px;font-weight:800;color:var(--green-text);margin:8px 0;}
+
+  .riwayat-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .riwayat-item:last-child{border-bottom:none;}
+  .ri-ic{width:30px;height:30px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .ri-mid{flex:1;}
+  .ri-mid .t{font-size:12.5px;font-weight:700;}
+  .ri-mid .s{font-size:11px;color:var(--muted);}
+  .tag-done{background:var(--green-bg);color:var(--green-text);font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;}
+
+  .cta-box{background:linear-gradient(180deg,#f4faf5 0%, #edf3ef 100%);border:1px dashed rgba(30,94,63,0.35);border-radius:10px;padding:16px;text-align:center;margin-top:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.6);}
+  .cta-box p{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .btn{border:none;border-radius:7px;padding:10px 18px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 12px rgba(22,41,74,0.06);}
+  .btn-green{background:linear-gradient(135deg, var(--green-mid) 0%, var(--green) 100%);color:#fff;width:100%;box-shadow:0 10px 18px rgba(30,94,63,0.18);}
+  .btn-green:hover{filter:brightness(1.02);}
+  .btn-outline{background:#fff;border:1px solid var(--border);color:var(--ink);}
+  .btn-outline:hover{background:var(--bg-soft);box-shadow:0 8px 16px rgba(17,32,27,0.05);}
+  .btn-red{background:var(--red);color:#fff;}
+
+  .search-row{display:flex;gap:12px;margin-bottom:16px;}
+  input.input, select.input{border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 13px;font-size:12.5px;}
+  .history-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);border-radius:10px;padding-left:10px;padding-right:10px;}
+  .history-row:hover{background:#f8fbf9;}
+  .history-row:last-child{border-bottom:none;}
+  .hr-date{font-size:11px;color:var(--muted);width:90px;flex-shrink:0;}
+  .hr-mid{flex:1;}
+  .hr-mid .t{font-size:13px;font-weight:700;}
+  .hr-mid .s{font-size:11.5px;color:var(--muted);}
+  .hr-amt{font-size:13px;font-weight:800;width:100px;text-align:right;flex-shrink:0;}
+  .pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px;font-size:12px;color:var(--muted);}
+  .pagination .pg{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;}
+  .pagination .pg.active{background:var(--green-mid);color:#fff;border-color:var(--green-mid);}
+
+  /* buat jadwal */
+  .booking-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .field2{margin-bottom:16px;}
+  .field2 label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .field2 input, .field2 select{width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;font-family:inherit;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .pkg-opt{border:1.5px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;cursor:pointer;position:relative;}
+  .pkg-opt.selected{border-color:var(--green-mid);background:#f3faf6;}
+  .pkg-opt .name{font-size:13.5px;font-weight:800;}
+  .pkg-opt .price{position:absolute;right:16px;top:14px;font-weight:800;font-size:13px;}
+  .pkg-opt .note{font-size:11px;color:var(--green-text);margin-top:4px;}
+  .total-row{display:flex;justify-content:space-between;align-items:center;margin:16px 0;}
+  .total-row .l{font-size:12px;color:var(--muted);}
+  .total-row .v{font-size:19px;font-weight:800;}
+
+  @media(max-width:900px){
+    .auth-visual{display:none;}
+    .auth-form-side{width:100%;}
+    .grid-2,.booking-grid,.two-col{grid-template-columns:1fr;}
+  }
+
+  /* ==== PROFIL PELANGGAN ==== */
+.profile-hero{
+  background:linear-gradient(135deg,var(--green-mid) 0%, var(--green-darker) 100%);
+  color:#fff;border-radius:16px;padding:26px 28px;position:relative;overflow:hidden;
+  box-shadow:0 14px 32px rgba(21,60,44,.18);margin-bottom:22px;
+}
+.profile-hero::before{
+  content:'';position:absolute;width:220px;height:220px;border-radius:50%;
+  background:rgba(255,255,255,.06);top:-70px;right:-70px;
+}
+.profile-hero::after{
+  content:'';position:absolute;width:140px;height:140px;border-radius:50%;
+  background:rgba(255,255,255,.04);bottom:-50px;right:60px;
+}
+.profile-hero-inner{position:relative;z-index:1;display:flex;align-items:center;gap:20px;}
+.profile-hero-avatar{
+  width:72px;height:72px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:800;letter-spacing:.5px;
+}
+.profile-hero-info{flex:1;min-width:0;}
+.profile-hero-name{font-size:22px;font-weight:800;margin-bottom:4px;letter-spacing:-.2px;}
+.profile-hero-meta{font-size:12.5px;color:#cfe0d5;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+.profile-hero-meta .dot{width:4px;height:4px;border-radius:50%;background:#8fae9c;display:inline-block;}
+.profile-hero-badge{
+  display:inline-block;background:rgba(255,255,255,.18);color:#fff;
+  font-size:10.5px;font-weight:800;padding:5px 11px;border-radius:14px;
+  letter-spacing:.4px;margin-top:6px;
+}
+.profile-hero-badge.b2b{background:rgba(176,42,55,.9);}
+
+/* Stats strip */
+.profile-stats{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;
+}
+.profile-stat{
+  background:linear-gradient(180deg,#ffffff 0%, #fbfcfb 100%);
+  border:1px solid rgba(162,174,168,.42);border-radius:12px;
+  padding:16px 18px;box-shadow:0 10px 22px rgba(17,32,27,.05);
+}
+.profile-stat .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;}
+.profile-stat .value{font-size:20px;font-weight:800;color:var(--ink);}
+.profile-stat .sub{font-size:11px;color:var(--green-text);font-weight:700;margin-top:3px;}
+
+/* Layout dua kolom */
+.profile-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;}
+.profile-section{
+  background:linear-gradient(180deg,#ffffff 0%, #fbfcfb 100%);
+  border:1px solid rgba(162,174,168,.42);border-radius:14px;
+  padding:24px 26px;box-shadow:0 10px 24px rgba(17,32,27,.04);
+}
+.profile-section h3{font-size:15px;font-weight:800;margin-bottom:4px;}
+.profile-section > p.hint{font-size:12px;color:var(--muted);margin-bottom:20px;}
+
+.profile-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.profile-form-row.single{grid-template-columns:1fr;}
+.profile-field{margin-bottom:16px;}
+.profile-field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;color:var(--ink);}
+.profile-field input,
+.profile-field textarea{
+  width:100%;border:1px solid var(--border);background:var(--bg-soft);
+  border-radius:8px;padding:11px 13px;font-size:13px;font-family:inherit;color:var(--ink);
+}
+.profile-field input:focus,
+.profile-field textarea:focus{outline:2px solid var(--green-mid);outline-offset:1px;background:#fff;}
+.profile-field input:disabled{background:#eceeed;color:var(--muted);cursor:not-allowed;}
+.profile-field .help{font-size:11px;color:var(--muted);margin-top:6px;}
+
+.profile-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+.btn-ghost{
+  background:#fff;border:1px solid var(--border);color:var(--ink);
+  border-radius:8px;padding:10px 16px;font-size:12.5px;font-weight:700;cursor:pointer;
+}
+.btn-ghost:hover{background:var(--bg-soft);}
+.btn-primary-soft{
+  background:linear-gradient(135deg,var(--green-mid) 0%, var(--green) 100%);
+  color:#fff;border:none;border-radius:8px;padding:10px 18px;
+  font-size:12.5px;font-weight:700;cursor:pointer;
+  box-shadow:0 8px 16px rgba(30,94,63,.18);
+}
+.btn-primary-soft:hover{filter:brightness(1.03);}
+.btn-primary-soft:disabled{opacity:.6;cursor:not-allowed;filter:none;}
+
+/* Kartu keamanan */
+.security-row{
+  display:flex;align-items:center;gap:12px;padding:14px 0;
+  border-bottom:1px solid var(--border);
+}
+.security-row:last-of-type{border-bottom:none;}
+.security-ic{
+  width:34px;height:34px;border-radius:9px;background:var(--bg-soft);
+  display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;
+}
+.security-info{flex:1;min-width:0;}
+.security-info .t{font-size:12.5px;font-weight:700;}
+.security-info .s{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.profile-message{
+  min-height:20px;font-size:12.5px;font-weight:700;margin-bottom:10px;
+}
+.profile-message.ok{color:var(--green-text);}
+.profile-message.err{color:var(--red);}
+
+@media(max-width:900px){
+  .profile-grid{grid-template-columns:1fr;}
+  .profile-stats{grid-template-columns:1fr;}
+  .profile-form-row{grid-template-columns:1fr;}
+  .profile-hero-inner{flex-direction:column;text-align:center;}
+  .profile-hero-meta{justify-content:center;}
+}
+@media(max-width:520px){
+  .payment-upload{align-items:stretch;flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH: LOGIN ============ -->
+<div class="auth-page active" id="auth-login">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🚗</span><span>CuciMesin</span></div>
+    <div class="auth-headline">
+      <h1>Perawatan Mesin<br>Tanpa Rasa Khawatir</h1>
+      <p>Pantau antrean cuci mesin kendaraan kesayangan Anda secara real-time dari mana saja.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" type="button" onclick="window.location.href='/booking.html'">KEMBALI</button>
+    <div class="auth-form">
+      <h2>Selamat Datang</h2>
+      <p>Masuk untuk melihat riwayat dan garansi kendaraan Anda.</p>
+      <div class="seg-tabs">
+        <button class="active">Pelanggan Reguler</button>
+        <button type="button" onclick="window.location.href='portal-mitra.html'">Member</button>
+      </div>
+      <div class="field"><label>Nomor WhatsApp / Email</label>
+        <div class="phone-input"><div class="cc">+62</div><input id="loginIdentifier" type="text" placeholder="81234567890 atau email"></div>
+      </div>
+      <div class="field-link"><label style="margin:0;">Kata Sandi / PIN</label><a href="https://wa.me/6281234567890?text=Halo%2C%20saya%20perlu%20bantuan%20akses%20akun%20pelanggan." target="_blank" rel="noopener noreferrer">Lupa?</a></div>
+      <div class="field" style="margin-top:-9px;"><input id="loginPassword" type="password" placeholder="Masukkan kata sandi"></div>
+      <button class="btn-auth" onclick="login()">Masuk Akun</button>
+      <div class="auth-foot">Belum punya akun? <a href="#" onclick="showAuth('auth-register')">Daftar Sekarang</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH: REGISTER ============ -->
+<div class="auth-page" id="auth-register">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🚗</span><span>CuciMesin</span></div>
+    <div class="auth-headline">
+      <h1>Bergabung Bersama<br>Ratusan Pelanggan</h1>
+      <p>Dapatkan kemudahan booking online, pantau proses pengerjaan secara live, dan klaim garansi dengan satu akun praktis.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <h2>Daftar Akun Baru</h2>
+      <p>Lengkapi data di bawah ini untuk mulai menggunakan layanan kami.</p>
+      <div class="field"><label>Nama Lengkap</label><input id="registerNama" type="text" placeholder="Nama Anda"></div>
+      <div class="field"><label>Nomor WhatsApp (Aktif)</label>
+        <div class="phone-input"><div class="cc">+62</div><input id="registerTelepon" type="text" placeholder="81234567890"></div>
+      </div>
+      <div class="field"><label>Kata Sandi</label><input id="registerPassword" type="password" minlength="8" placeholder="Minimal 8 karakter"></div>
+      <div class="field"><label>Konfirmasi Kata Sandi</label><input id="registerPasswordConfirm" type="password" placeholder="Ulangi kata sandi Anda..."></div>
+      <div class="check-row"><input type="checkbox"><span>Saya setuju dengan <b>Syarat &amp; Ketentuan</b> yang berlaku.</span></div>
+      <button class="btn-auth" onclick="register()">Buat Akun Sekarang</button>
+      <div class="auth-foot">Sudah punya akun? <a href="#" onclick="showAuth('auth-login')">Masuk di sini</a></div>
+      <div class="auth-foot" style="margin-top:6px;">Pendaftaran khusus <a href="/mitra-landing.html">Mitra Showroom (B2B)</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH: FORGOT PASSWORD ============ -->
+<div class="auth-page" id="auth-forgot">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🚗</span><span>CuciMesin</span></div>
+    <div class="auth-headline">
+      <h1>Keamanan Akun<br>Selalu Terjaga</h1>
+      <p>Jangan khawatir jika Anda melupakan kata sandi. Kami akan membantu Anda memulihkan akses ke akun Anda dengan cepat, aman, dan mudah.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <div style="font-size:22px;margin-bottom:8px;">🔒</div>
+      <h2>Lupa Kata Sandi?</h2>
+      <p>Masukkan nomor WhatsApp atau Email yang terdaftar. Kami akan mengirimkan instruksi untuk mengatur ulang sandi.</p>
+      <div class="field"><label>Nomor WhatsApp / Email Terdaftar</label><input type="text" placeholder="Contoh: 081234567890 atau email..."></div>
+      <button class="btn-auth" onclick="showAuth('auth-reset')">Kirim Instruksi Reset</button>
+      <div class="auth-foot">Ingat kata sandi Anda? <a href="#" onclick="showAuth('auth-login')">Kembali ke Masuk</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH: RESET PASSWORD ============ -->
+<div class="auth-page" id="auth-reset">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🚗</span><span>CuciMesin</span></div>
+    <div class="auth-headline">
+      <h1>Selangkah Lagi<br>Menuju Akun Anda</h1>
+      <p>Buat kata sandi baru yang kuat dan mudah diingat. Gunakan kombinasi huruf dan angka agar keamanan data kendaraan Anda tetap terjamin.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <div style="font-size:20px;margin-bottom:8px;">🔑</div>
+      <h2>Atur Ulang Sandi</h2>
+      <p>Silakan buat kata sandi baru untuk akun Anda.</p>
+      <div class="field"><label>Kata Sandi Baru</label><input type="password" placeholder="••••••••"></div>
+      <div class="field"><label>Konfirmasi Kata Sandi Baru</label><input type="password" placeholder="••••••••"></div>
+      <button class="btn-auth" onclick="showAuth('auth-login')">Simpan Kata Sandi Baru</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CUSTOMER APP ============ -->
+<div id="cust-app">
+  <header class="topbar">
+    <div class="logo"><div class="logo-icon">🚗</div><div class="logo-text">CuciMesin</div></div>
+    <button id="userChip" class="user-chip" type="button" onclick="showC('profil')">Pengguna <div class="user-avatar">P</div></button>
+  </header>
+
+  <!-- HOME -->
+  <div class="cpage active" id="c-home">
+    <div class="greet">
+      <h1>Halo, Abdul Kholik 👋</h1>
+      <p>Pantau status pengerjaan kendaraan dan unduh sertifikat garansi Anda di sini.</p>
+    </div>
+    <div class="card" id="currentStatusCard">
+  <div class="card-head">
+    <h3>Status Pengerjaan Saat Ini</h3>
+    <span class="status-spk" id="statusSpkLabel">—</span>
+  </div>
+  <div class="status-veh" id="statusVehLabel">Belum ada pengerjaan aktif</div>
+  <div class="progress-track" id="statusProgress">
+    <div class="p-dot empty"></div>
+    <div class="p-line off"></div>
+    <div class="p-dot empty"></div>
+    <div class="p-line off"></div>
+    <div class="p-dot empty"></div>
+  </div>
+  <div id="statusMeta" style="font-size:11.5px;color:var(--muted);margin-top:10px;"></div>
+  </div>
+      <div class="card payment-card" id="customerPaymentSection" style="display:none;" aria-live="polite"></div>
+      <div class="card">
+  <div class="card-head">
+    <h3>Riwayat Terakhir</h3>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <!-- Tombol Refresh Baru -->
+      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11.5px;" onclick="loadPelangganData(localStorage.getItem(TOKEN_KEY) || '')">
+        ↻ Refresh
+      </button>
+      <a href="#" onclick="showC('riwayat')">Lihat Semua</a>
+    </div>
+  </div>
+  <div id="riwayatTerakhirList">
+    <div class="riwayat-item">
+      <div class="ri-mid"><div class="t">Memuat riwayat...</div></div>
+    </div>
+  </div>
+  <div class="cta-box">
+    <p>Ingin mencuci kendaraan lain? Pesan jadwal baru tanpa perlu antre lama.</p>
+    <button class="btn btn-green" onclick="showC('booking')">+ Booking Baru</button>
+  </div>
+</div>
+    <div class="card">
+      <div class="card-head"><h3>Riwayat Layanan Anda</h3></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;margin-top:-10px;">Arsip lengkap perawatan engine detailing untuk seluruh kendaraan Anda.</p>
+      <div class="search-row">
+        <input class="input" placeholder="Cari plat nomor atau layanan..." style="flex:1;">
+        <select class="input"><option>Tahun: 2026</option><option>2025</option></select>
+      </div>
+      <div id="homeHistoryList"></div>
+      <div class="pagination"><span>Riwayat layanan Anda akan muncul di sini.</span></div>
+    </div>
+  </div>
+
+  <!-- PROFIL -->
+<div class="cpage" id="c-profil">
+  <div class="crumb"><b>Profil Pelanggan</b></div>
+
+  <!-- Hero -->
+  <div class="profile-hero">
+    <div class="profile-hero-inner">
+      <div class="profile-hero-avatar" id="profileAvatar">P</div>
+      <div class="profile-hero-info">
+        <div class="profile-hero-name" id="profileHeroName">Memuat...</div>
+        <div class="profile-hero-meta">
+          <span id="profileHeroPhone">-</span>
+          <span class="dot"></span>
+          <span id="profileHeroEmail">-</span>
+        </div>
+        <span class="profile-hero-badge" id="profileHeroBadge">PELANGGAN</span>
+      </div>
+      <button class="btn-ghost" type="button" onclick="showC('home')" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;">
+        ← Kembali
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="profile-stats">
+    <div class="profile-stat">
+      <div class="label">Total Layanan</div>
+      <div class="value" id="profileStatTotalSpk">0</div>
+      <div class="sub" id="profileStatTotalSpkSub">SPK tercatat</div>
+    </div>
+    <div class="profile-stat">
+      <div class="label">Total Pengeluaran</div>
+      <div class="value" id="profileStatTotalSpent">Rp 0</div>
+      <div class="sub">Sepanjang riwayat</div>
+    </div>
+    <div class="profile-stat">
+      <div class="label">Layanan Selesai</div>
+      <div class="value" id="profileStatSelesai">0</div>
+      <div class="sub" id="profileStatSelesaiSub">Siap diambil</div>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="profile-grid">
+
+    <!-- Informasi Akun -->
+    <div class="profile-section">
+      <h3>Informasi Akun</h3>
+      <p class="hint">Data ini digunakan untuk booking, notifikasi WhatsApp, dan penerbitan nota SPK.</p>
+
+      <div id="profileMessage" class="profile-message"></div>
+
+      <div class="profile-form-row">
+        <div class="profile-field">
+          <label for="profileNama">Nama Lengkap</label>
+          <input id="profileNama" type="text" autocomplete="name" placeholder="Nama sesuai KTP">
+        </div>
+        <div class="profile-field">
+          <label for="profileTelepon">Nomor WhatsApp</label>
+          <input id="profileTelepon" type="text" autocomplete="tel" placeholder="0812xxxxxxx">
+          <div class="help">Digunakan untuk notifikasi dan status pengerjaan.</div>
+        </div>
+      </div>
+
+      <div class="profile-form-row single">
+        <div class="profile-field">
+          <label for="profileEmail">Email</label>
+          <input id="profileEmail" type="email" autocomplete="email" placeholder="nama@email.com">
+        </div>
+      </div>
+
+      <div class="profile-form-row single">
+        <div class="profile-field">
+          <label for="profileAlamat">Alamat</label>
+          <textarea id="profileAlamat" rows="3" placeholder="Alamat lengkap (opsional)"></textarea>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <button class="btn-ghost" type="button" onclick="loadCustomerProfile()">Reset</button>
+        <button id="saveProfileButton" class="btn-primary-soft" type="button" onclick="saveCustomerProfile()">Simpan Perubahan</button>
+      </div>
+    </div>
+
+    <!-- Keamanan Akun -->
+    <div class="profile-section">
+      <h3>Keamanan Akun</h3>
+      <p class="hint">Jaga kerahasiaan akun Anda. Jangan bagikan kata sandi ke siapa pun.</p>
+
+      <div class="security-row">
+        <div class="security-ic">🔑</div>
+        <div class="security-info">
+          <div class="t">Kata Sandi</div>
+          <div class="s">Terakhir diperbarui: —</div>
+        </div>
+        <button class="btn-ghost" type="button" onclick="toggleCustomerPasswordForm()">Ubah</button>
+      </div>
+      <form id="customerPasswordForm" onsubmit="changeCustomerPassword(event)" style="display:none;border-top:1px solid var(--border);padding-top:16px;">
+        <div class="profile-form-row single">
+          <div class="profile-field"><label for="customerOldPassword">Kata sandi saat ini</label><input id="customerOldPassword" type="password" autocomplete="current-password" required></div>
+          <div class="profile-field"><label for="customerNewPassword">Kata sandi baru</label><input id="customerNewPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+          <div class="profile-field"><label for="customerConfirmPassword">Konfirmasi kata sandi baru</label><input id="customerConfirmPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+        </div>
+        <div class="profile-message" id="customerPasswordMessage" role="status" aria-live="polite"></div>
+        <div class="profile-actions">
+          <button class="btn-ghost" type="button" onclick="toggleCustomerPasswordForm(false)">Batal</button>
+          <button class="btn-primary-soft" id="customerPasswordSaveButton" type="submit">Simpan Kata Sandi</button>
+        </div>
+      </form>
+
+      <div class="security-row">
+        <div class="security-ic">📱</div>
+        <div class="security-info">
+          <div class="t">Nomor WhatsApp Terverifikasi</div>
+          <div class="s" id="securityPhoneState">-</div>
+        </div>
+        <a class="btn-ghost" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20perlu%20bantuan%20memperbarui%20nomor%20WhatsApp%20akun." target="_blank" rel="noopener noreferrer">Bantuan</a>
+      </div>
+
+      <div class="security-row">
+        <div class="security-ic">📄</div>
+        <div class="security-info">
+          <div class="t">Unduh Riwayat Layanan</div>
+          <div class="s">Ekspor seluruh SPK Anda (segera hadir)</div>
+        </div>
+        <button class="btn-ghost" type="button" disabled style="opacity:.5;cursor:not-allowed;">Unduh</button>
+      </div>
+
+      <div class="security-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:16px;">
+        <div class="security-ic" style="background:#fdecec;color:var(--red);">⎋</div>
+        <div class="security-info">
+          <div class="t" style="color:var(--red);">Keluar dari Akun</div>
+          <div class="s">Anda akan diminta login kembali.</div>
+        </div>
+        <button class="btn-ghost" type="button" onclick="logoutCustomer()" style="border-color:var(--red);color:var(--red);">Keluar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  <!-- BUAT JADWAL PERAWATAN -->
+  <div class="cpage" id="c-booking">
+    <div class="crumb">Dashboard / <b>Buat Booking Baru</b></div>
+    <h1 style="font-size:20px;font-weight:800;margin-bottom:4px;">Buat Jadwal Perawatan</h1>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:22px;">Isi detail kendaraan dan pilih waktu yang ingin Anda perlu antre di lokasi.</p>
+    <div class="booking-grid">
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:800;margin-bottom:16px;">1. Detail Kendaraan &amp; Jadwal</h3>
+        <div class="field2"><label>Nama Lengkap</label><input id="bookingNama" type="text" placeholder="Nama lengkap"></div>
+        <div class="field2"><label>Nomor WhatsApp</label><input id="bookingTelepon" type="text" placeholder="81234567890"></div>
+        <div class="field2"><label>Email (opsional)</label><input id="bookingEmail" type="email" placeholder="email@example.com"></div>
+        <div class="field2"><label>Plat Nomor Kendaraan</label><input id="bookingPlatNomor" type="text" placeholder="Contoh: S 1234 AB"></div>
+        <div class="field2"><label>Merek &amp; Tipe Kendaraan</label><input id="bookingMerkTipe" type="text" placeholder="Contoh: Toyota Innova Reborn (Hitam)"></div>
+        <div class="two-col">
+          <div class="field2"><label>Tanggal Kedatangan</label><input id="bookingTanggal" type="date"></div>
+          <div class="field2"><label>Waktu (Estimasi)</label><input id="bookingWaktu" type="time"></div>
+        </div>
+        <div class="field2">
+          <label>Catatan Khusus</label>
+          <textarea id="bookingCatatan" style="width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;" placeholder="Contoh: Mesin terasa berisik saat idle..."></textarea>
+        </div>
+        <button class="btn btn-outline" style="width:100%;" onclick="showC('home')">Batalkan Penjadwalan</button>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:800;margin-bottom:16px;">2. Pilih Paket Layanan</h3>
+        <div id="layananOptions"></div>
+        <div class="total-row"><span class="l">Total Estimasi Biaya</span><span class="v" id="bookingTotal">Rp 0</span></div>
+        <p style="font-size:10.5px;color:var(--muted);margin-bottom:14px;">*Setelah layanan selesai, transfer melalui bank dan unggah bukti pembayaran di halaman pelanggan.</p>
+        <button class="btn btn-green" onclick="submitBooking()">Konfirmasi Jadwal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIWAYAT (alias to home history section) -->
+  <div class="cpage" id="c-riwayat">
+    <div class="crumb"><b>Riwayat Layanan</b></div>
+    <div class="profile-head">
+      <h1 style="font-size:20px;font-weight:800;margin-bottom:0;">Riwayat Layanan Anda</h1>
+      <button class="back-link" type="button" onclick="showC('home')">← Kembali</button>
+    </div>
+    <div class="card">
+      <div class="search-row">
+        <input class="input" placeholder="Cari plat nomor atau layanan..." style="flex:1;">
+        <select class="input"><option>Tahun: 2026</option><option>2025</option></select>
+      </div>
+      <div id="riwayatHistoryList"></div>
+      <div class="pagination"><span>Riwayat layanan Anda akan muncul di sini.</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const TOKEN_KEY = 'cucimesin_customer_token';
+const USER_KEY = 'cucimesin_customer_user';
+let layananCatalog = [];
+let selectedLayananId = null;
+let customerHistoryRows = [];
+let customerPaymentData = { rekening: {}, pembayaran: [] };
+
+function migrateCustomerSession(){
+  const legacyToken = localStorage.getItem('cucimesin_token');
+  const legacyUser = JSON.parse(localStorage.getItem('cucimesin_user') || 'null');
+  if (!localStorage.getItem(TOKEN_KEY) && legacyUser?.role === 'pelanggan' && legacyToken) {
+    localStorage.setItem(TOKEN_KEY, legacyToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(legacyUser));
+  }
+}
+
+function showAuth(id){
+  document.querySelectorAll('.auth-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function normalizeIdentifier(value){
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw.toLowerCase();
+
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return raw;
+  if (digits.startsWith('62')) return '0' + digits.slice(2);
+  if (digits.startsWith('8')) return '0' + digits.slice(1);
+  return digits;
+}
+
+function updateUserChip(user){
+  const chip = document.getElementById('userChip');
+  if (!chip || !user) return;
+
+  const initials = user.nama
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
+
+  chip.textContent = user.nama || 'Pengguna';
+  const avatar = document.createElement('div');
+  avatar.className = 'user-avatar';
+  avatar.textContent = initials || 'U';
+  chip.appendChild(avatar);
+}
+
+function setProfileMessage(message, isError = false){
+  const element = document.getElementById('profileMessage');
+  if (!element) return;
+  element.textContent = message || '';
+  element.style.color = isError ? 'var(--red)' : 'var(--green-text)';
+}
+
+function renderCustomerProfile(profile){
+  const fields = {
+    profileNama: profile?.nama || '',
+    profileTelepon: profile?.telepon || '',
+    profileEmail: profile?.email || '',
+    profileAlamat: profile?.alamat || ''
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value;
+  });
+}
+
+async function loadCustomerProfile(token = localStorage.getItem(TOKEN_KEY) || ''){
+  if (!token) return;
+  try {
+    const response = await fetch('/api/pelanggan/me/profile', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat profil');
+    renderCustomerProfile(data);
+  } catch (error) {
+    setProfileMessage(error.message || 'Gagal memuat profil.', true);
+  }
+}
+
+async function saveCustomerProfile(){
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  const button = document.getElementById('saveProfileButton');
+  const payload = {
+    nama: document.getElementById('profileNama')?.value.trim() || '',
+    telepon: normalizeIdentifier(document.getElementById('profileTelepon')?.value || ''),
+    email: document.getElementById('profileEmail')?.value.trim() || '',
+    alamat: document.getElementById('profileAlamat')?.value.trim() || ''
+  };
+
+  if (!payload.nama || !payload.telepon) {
+    setProfileMessage('Nama dan nomor WhatsApp wajib diisi.', true);
+    return;
+  }
+
+  button.disabled = true;
+  setProfileMessage('Menyimpan profil...');
+  try {
+    const response = await fetch('/api/pelanggan/me/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan profil');
+    localStorage.setItem(USER_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(USER_KEY) || '{}'), ...data }));
+    updateUserChip(data);
+    setBookingDefaults(data);
+    setProfileMessage('Profil berhasil disimpan.');
+  } catch (error) {
+    setProfileMessage(error.message || 'Gagal menyimpan profil.', true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function enterApp(){
+  document.querySelectorAll('.auth-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('cust-app').classList.add('active');
+}
+
+function formatCurrency(value){
+  const num = Number(value || 0);
+  return `Rp ${num.toLocaleString('id-ID')}`;
+}
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function renderHistoryRow(row){
+  const isBooking = row.jenis === 'booking';
+
+  // Untuk booking: tampilkan jadwal (tanggal + waktu)
+  // Untuk SPK: tampilkan waktu pembuatan
+  const tgl = isBooking && row.tanggal
+    ? `${new Date(row.tanggal).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' })}${row.waktu ? ' • ' + String(row.waktu).slice(0,5) : ''}`
+    : (row.created_at
+        ? new Date(row.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' })
+        : '-');
+
+  const labelNo = isBooking
+    ? `Booking ${escapeHtml(row.no_spk || '-')}`
+    : escapeHtml(row.no_spk || '-');
+
+  const showDownload = row.jenis === 'spk' && row.status === 'Selesai';
+  const downloadBtn = showDownload
+    ? `<button class="btn btn-outline" onclick="downloadSpkPdf(${row.id}, '${escapeHtml(row.no_spk || '')}')">Unduh Nota</button>`
+    : '';
+
+  const amountCell = row.total
+    ? formatCurrency(row.total)
+    : (isBooking ? '<span style="color:var(--muted);font-weight:600;">Estimasi</span>' : '-');
+
+  return `
+    <div class="history-row">
+      <div class="hr-date">${tgl}</div>
+      <div class="hr-mid">
+        <div class="t">${escapeHtml(row.merk_tipe || 'Kendaraan')} • ${escapeHtml(row.plat_nomor || '-')}</div>
+        <div class="s">${labelNo} • ${escapeHtml(row.layanan || '-')}</div>
+      </div>
+      <div class="hr-amt">${amountCell}</div>
+      <span class="tag-done" style="${riwayatTagStyle(row)}">${escapeHtml(row.status || '-')}</span>
+      ${downloadBtn}
+    </div>
+  `;
+}
+
+function renderHistoryLists(rows){
+  const homeList = document.getElementById('homeHistoryList');
+  const riwayatList = document.getElementById('riwayatHistoryList');
+  const list = Array.isArray(rows) ? rows : [];
+
+  const emptyRow = `<div class="history-row"><div class="hr-mid"><div class="t">Belum ada riwayat</div></div></div>`;
+  const html = list.length ? list.map(renderHistoryRow).join('') : emptyRow;
+
+  if (homeList) homeList.innerHTML = html;
+  if (riwayatList) riwayatList.innerHTML = html;
+}
+
+async function downloadSpkPdf(spkId, spkNumber){
+  const token = localStorage.getItem(TOKEN_KEY);
+
+  if (!token) {
+    alert('Sesi Anda telah berakhir. Silakan login kembali.');
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/spk/${spkId}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Gagal mendownload PDF SPK');
+    }
+
+    const blob = await response.blob();
+    const signature = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+    if (signature !== '%PDF-') {
+      throw new Error('Server mengirim data nota yang tidak valid. Coba lagi setelah backend dimulai ulang.');
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${spkNumber || `SPK-${spkId}`}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) {
+    alert(error.message || 'Gagal mengunduh PDF SPK');
+  }
+}
+
+/* ===== Sinkronisasi Beranda ===== */
+
+function buildProgressTrack(status){
+  let step = 0;
+  
+  // TAHAP 1: Booking baru masuk atau SPK sedang menunggu
+  if (status === 'Baru' || status === 'Menunggu') {
+    step = 1;
+  } 
+  // TAHAP 2: Booking sedang diproses atau SPK sedang dikerjakan teknisi
+  else if (status === 'Diproses' || status === 'Dikerjakan') {
+    step = 2;
+  } 
+  // TAHAP 3: Pengerjaan selesai atau booking telah dikonversi penuh
+  else if (status === 'Selesai' || status === 'Dikonversi') {
+    step = 3;
+  }
+
+  // Render visual titik dan garis
+  const dot1 = step > 1 ? '<div class="p-dot">✓</div>' : (step === 1 ? '<div class="p-dot mid">●</div>' : '<div class="p-dot empty"></div>');
+  const line1 = step >= 2 ? '<div class="p-line"></div>' : '<div class="p-line off"></div>';
+  
+  const dot2 = step > 2 ? '<div class="p-dot">✓</div>' : (step === 2 ? '<div class="p-dot mid">●</div>' : '<div class="p-dot empty"></div>');
+  const line2 = step >= 3 ? '<div class="p-line"></div>' : '<div class="p-line off"></div>';
+  
+  const dot3 = step === 3 ? '<div class="p-dot">✓</div>' : '<div class="p-dot empty"></div>';
+
+  return dot1 + line1 + dot2 + line2 + dot3;
+}
+
+function renderLatestActiveSpk(rows){
+  const list = Array.isArray(rows) ? rows : [];
+
+  // Hanya tampilkan pekerjaan yang masih aktif. Jika status terakhir sudah selesai,
+  // maka status pengerjaan harus dianggap kosong agar tidak menampilkan order yang
+  // sudah selesai sebagai pekerjaan yang sedang berjalan.
+  const active = list.find(r => ['Baru', 'Diproses', 'Menunggu', 'Dikerjakan'].includes(r.status)) || null;
+
+  const spkLabel = document.getElementById('statusSpkLabel');
+  const vehLabel = document.getElementById('statusVehLabel');
+  const progress = document.getElementById('statusProgress');
+  const meta = document.getElementById('statusMeta');
+
+  if (!active) {
+    if (spkLabel) spkLabel.textContent = '—';
+    if (vehLabel) vehLabel.textContent = 'Belum ada pesanan yang dikerjakan';
+    if (progress) progress.innerHTML = buildProgressTrack(null);
+    if (meta) meta.textContent = 'Kosong';
+    return;
+  }
+
+  const tglDate = active.jenis === 'booking' ? active.tanggal : active.created_at;
+  const tgl = tglDate ? new Date(tglDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+  if (spkLabel) spkLabel.textContent = active.no_spk || '—';
+  if (vehLabel) vehLabel.textContent = `${active.merk_tipe || 'Kendaraan'} • ${active.plat_nomor || '-'}`;
+  if (progress) progress.innerHTML = buildProgressTrack(active.status);
+  if (meta) meta.textContent = `${active.layanan || '-'}${tgl ? ' • ' + tgl : ''} (${active.status})`;
+}
+
+// Tambahkan fungsi pewarnaan status ini agar browser tidak error
+function riwayatTagStyle(r) {
+  if (r.status === 'Dikerjakan' || r.status === 'Diproses') return 'background:#fde9d3;color:#b0641c;';
+  if (r.status === 'Menunggu' || r.status === 'Baru') return 'background:#fdf2d0;color:#8a6d1a;';
+  if (r.status === 'Batal') return 'background:#fdecec;color:var(--red);';
+  if (r.status === 'Selesai' || r.status === 'Dikonversi') return 'background:#e1f3e6;color:#1e7d3f;';
+  return 'background:#eee;color:var(--muted);';
+}
+
+// Blok fungsi renderRiwayatTerakhir yang sudah dibersihkan
+function renderRiwayatTerakhir(rows){
+  const container = document.getElementById('riwayatTerakhirList');
+  if (!container) return;
+
+  const recent = (Array.isArray(rows) ? rows : []).slice(0, 3);
+
+  if (!recent.length) {
+    container.innerHTML = `
+      <div class="riwayat-item">
+        <div class="ri-mid">
+          <div class="t">Belum ada riwayat</div>
+          <div class="s">Booking pertama Anda akan muncul di sini.</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = recent.map(r => {
+    const isBooking = r.jenis === 'booking';
+    
+    // Tentukan tampilan tanggal
+    const tgl = isBooking && r.tanggal
+      ? `${new Date(r.tanggal).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' })}${r.waktu ? ' • ' + String(r.waktu).slice(0,5) : ''}`
+      : (r.created_at
+          ? new Date(r.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' })
+          : '-');
+          
+    const labelNo = isBooking ? `Booking ${r.no_spk || '-'}` : (r.no_spk || '-');
+
+    return `
+      <div class="riwayat-item">
+        <div class="ri-ic">${isBooking ? '📅' : '🚗'}</div>
+        <div class="ri-mid">
+          <div class="t">${escapeHtml(r.merk_tipe || 'Kendaraan')} • ${escapeHtml(r.plat_nomor || '-')}</div>
+          <div class="s">${tgl} • ${escapeHtml(labelNo)}</div>
+        </div>
+        <span class="tag-done" style="${riwayatTagStyle(r)}">${escapeHtml(r.status || '-')}</span>
+      </div>`;
+  }).join('');
+}
+
+  container.innerHTML = recent.map(r => {
+    const tgl = r.created_at
+      ? new Date(r.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '-';
+
+    let tagStyle = '';
+    if (r.status === 'Dikerjakan') tagStyle = 'background:#fde9d3;color:#b0641c;';
+    else if (r.status === 'Menunggu') tagStyle = 'background:#fdf2d0;color:#8a6d1a;';
+    else if (r.status === 'Batal') tagStyle = 'background:#fdecec;color:var(--red);';
+
+    return `
+      <div class="riwayat-item">
+        <div class="ri-ic">🚗</div>
+        <div class="ri-mid">
+          <div class="t">${escapeHtml(r.merk_tipe || 'Kendaraan')} • ${escapeHtml(r.plat_nomor || '-')}</div>
+          <div class="s">${tgl} • ${escapeHtml(r.layanan || '-')}</div>
+        </div>
+        <span class="tag-done" style="${tagStyle}">${escapeHtml(r.status || 'Menunggu')}</span>
+      </div>`;
+  }).join('');
+
+
+function renderPelangganData(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  customerHistoryRows = list;
+
+  // Sapaan
+  const greet = document.querySelector('.greet h1');
+  if (greet) {
+    const storedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    greet.textContent = `Halo, ${storedUser?.nama || 'Pelanggan'} 👋`;
+  }
+
+  // Sinkronisasi tiga bagian beranda
+  renderLatestActiveSpk(list);
+  renderCustomerPaymentOptions(list);
+  renderRiwayatTerakhir(list);
+  renderHistoryLists(list);
+}
+
+function renderCustomerPaymentOptions(rows){
+  const section = document.getElementById('customerPaymentSection');
+  if (!section) return;
+
+  const completedOrders = (Array.isArray(rows) ? rows : [])
+    .filter(row => row.jenis === 'spk' && row.status === 'Selesai' && Number(row.total) > 0);
+  if (!completedOrders.length) {
+    section.style.display = 'none';
+    section.innerHTML = '';
+    return;
+  }
+  if (customerPaymentData.error) {
+    section.style.display = 'block';
+    section.innerHTML = `<div class="card-head"><h3>Sistem Pembayaran</h3></div><p class="payment-feedback" role="status">${escapeHtml(customerPaymentData.error)}</p>`;
+    return;
+  }
+
+  const rekening = customerPaymentData.rekening || {};
+  const hasAccount = Boolean(rekening.bank && rekening.nomor && rekening.pemilik);
+  section.style.display = 'block';
+  section.innerHTML = `
+    <div class="card-head">
+      <h3>Sistem Pembayaran</h3>
+      <span class="tag-done">Layanan Selesai</span>
+    </div>
+    <p class="payment-note">Pembayaran saat ini menggunakan transfer bank manual. Transfer sesuai nominal pada setiap tagihan, lalu kirim bukti untuk diverifikasi admin.</p>
+    ${hasAccount ? `
+      <div class="payment-account">
+        <div><b>Bank</b> ${escapeHtml(rekening.bank)}</div>
+        <div class="payment-account-row"><span><b>Nomor rekening</b> <span id="paymentAccountNumberText">${escapeHtml(rekening.nomor)}</span></span>
+          <button class="btn btn-outline" type="button" onclick="copyCustomerPaymentAccount()">Salin nomor</button></div>
+        <div><b>Atas nama</b> ${escapeHtml(rekening.pemilik)}</div>
+      </div>` : '<p class="payment-feedback" role="status">Informasi rekening belum tersedia. Silakan hubungi admin.</p>'}
+    ${hasAccount ? '<ol class="payment-steps"><li>Pilih tagihan dan transfer tepat sesuai nominal.</li><li>Unggah foto/screenshot bukti transfer (JPG, PNG, atau WebP, maksimal 5 MB).</li><li>Tunggu verifikasi admin. Jika bukti ditolak, baca alasannya lalu unggah ulang.</li></ol>' : ''}
+    <p class="payment-feedback" id="customerPaymentMessage" role="status" aria-live="polite"></p>
+    ${completedOrders.map(order => {
+      const payment = customerPaymentData.pembayaran.find(item => Number(item.spk_id) === Number(order.id));
+      const status = payment?.status_pembayaran || '';
+      const statusClass = status === 'Ditolak' ? 'rejected'
+        : status === 'Menunggu Konfirmasi' ? 'pending'
+        : status === 'Dikonfirmasi' ? ''
+        : 'unpaid';
+      const canUpload = hasAccount && status !== 'Dikonfirmasi' && status !== 'Menunggu Konfirmasi';
+      return `
+        <div class="payment-record">
+          <p class="payment-order">${escapeHtml(order.no_spk || '-')} • ${escapeHtml(order.merk_tipe || 'Kendaraan')} • ${escapeHtml(order.plat_nomor || '-')}</p>
+          <p class="payment-amount">Tagihan: ${formatCurrency(order.total)}</p>
+          <span class="payment-status ${statusClass}">${escapeHtml(status || 'Belum dibayar')}</span>
+          ${status === 'Menunggu Konfirmasi' ? '<p class="payment-note">Bukti pembayaran sedang diperiksa admin.</p>' : ''}
+          ${status === 'Dikonfirmasi' ? `<p class="payment-note">Pembayaran sebesar ${formatCurrency(payment.nominal)} sudah dikonfirmasi.</p>` : ''}
+          ${status === 'Ditolak' ? `<p class="payment-feedback" role="status">Bukti ditolak: ${escapeHtml(payment.catatan_admin || 'Silakan unggah ulang bukti transfer yang benar.')}</p>` : ''}
+          ${payment?.has_bukti && payment.pembayaran_id ? `<div class="payment-actions"><button class="btn btn-outline" type="button" onclick="viewCustomerPaymentProof(${Number(payment.pembayaran_id)})">Lihat bukti terkirim</button></div>` : ''}
+          ${canUpload ? `
+            <div class="payment-upload">
+              <input id="paymentProof-${Number(order.id)}" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Bukti transfer ${escapeHtml(order.no_spk || '')}" onchange="validateCustomerPaymentFile(${Number(order.id)})">
+              <button class="btn btn-green" id="paymentSubmit-${Number(order.id)}" type="button" onclick="submitCustomerPayment(${Number(order.id)})">${status === 'Ditolak' ? 'Unggah Ulang Bukti' : 'Kirim Bukti Pembayaran'}</button>
+            </div>
+            <p class="payment-feedback" id="paymentFeedback-${Number(order.id)}" role="status"></p>` : ''}
+        </div>`;
+    }).join('')}`;
+}
+
+function validateCustomerPaymentFile(spkId){
+  const input = document.getElementById(`paymentProof-${spkId}`);
+  const feedback = document.getElementById(`paymentFeedback-${spkId}`);
+  const file = input?.files?.[0];
+  if (!feedback || !file) return Boolean(file);
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+  if (!allowedTypes.includes(file.type) || !allowedExtensions.includes(extension)) {
+    input.value = '';
+    feedback.textContent = 'Pilih file gambar JPG, PNG, atau WebP.';
+    feedback.style.color = 'var(--red)';
+    return false;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    input.value = '';
+    feedback.textContent = 'Ukuran bukti pembayaran maksimal 5 MB.';
+    feedback.style.color = 'var(--red)';
+    return false;
+  }
+  feedback.textContent = `${file.name} siap dikirim (${(file.size / 1024 / 1024).toFixed(2)} MB).`;
+  feedback.style.color = 'var(--green-text)';
+  return true;
+}
+
+async function copyCustomerPaymentAccount(){
+  const number = document.getElementById('paymentAccountNumberText')?.textContent?.trim();
+  const message = document.getElementById('customerPaymentMessage');
+  if (!number || !message) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(number);
+    } else {
+      const input = document.createElement('textarea');
+      input.value = number;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      if (!copied) throw new Error('Browser tidak mengizinkan penyalinan otomatis.');
+    }
+    message.style.color = 'var(--green-text)';
+    message.textContent = 'Nomor rekening berhasil disalin.';
+  } catch (error) {
+    message.style.color = 'var(--red)';
+    message.textContent = error.message || 'Gagal menyalin nomor rekening.';
+  }
+}
+
+async function viewCustomerPaymentProof(paymentId){
+  const preview = window.open('about:blank', '_blank');
+  const message = document.getElementById('customerPaymentMessage');
+  try {
+    const token = localStorage.getItem(TOKEN_KEY) || '';
+    const response = await fetch(`/api/pembayaran/${paymentId}/bukti`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Gagal membuka bukti pembayaran');
+    }
+    const proofUrl = URL.createObjectURL(await response.blob());
+    if (!preview) {
+      URL.revokeObjectURL(proofUrl);
+      throw new Error('Izinkan pop-up untuk melihat bukti pembayaran.');
+    }
+    preview.location.href = proofUrl;
+    preview.addEventListener('beforeunload', () => URL.revokeObjectURL(proofUrl), { once: true });
+    message.textContent = '';
+  } catch (error) {
+    if (preview) preview.close();
+    message.style.color = 'var(--red)';
+    message.textContent = error.message || 'Gagal membuka bukti pembayaran.';
+  }
+}
+
+async function submitCustomerPayment(spkId){
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  const input = document.getElementById(`paymentProof-${spkId}`);
+  const button = document.getElementById(`paymentSubmit-${spkId}`);
+  const feedback = document.getElementById(`paymentFeedback-${spkId}`);
+  const file = input?.files?.[0];
+  if (!file) {
+    feedback.textContent = 'Pilih bukti transfer terlebih dahulu.';
+    feedback.style.color = 'var(--red)';
+    return;
+  }
+  if (!validateCustomerPaymentFile(spkId)) {
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('bukti', file);
+  button.disabled = true;
+  button.textContent = 'Mengirim...';
+  feedback.textContent = '';
+  try {
+    const response = await fetch(`/api/pembayaran/${spkId}/bukti`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal mengirim bukti pembayaran');
+    feedback.style.color = 'var(--green-text)';
+    feedback.textContent = 'Bukti berhasil dikirim. Pembayaran menunggu verifikasi admin.';
+    await loadPelangganData(token);
+  } catch (error) {
+    feedback.textContent = error.message || 'Gagal mengirim bukti pembayaran.';
+    feedback.style.color = 'var(--red)';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Kirim Bukti Pembayaran';
+  }
+}
+
+async function loadPelangganData(token){
+  if (!token) return;
+  try {
+    // PERBAIKAN ANTI-CACHE: Tambahkan timestamp agar browser selalu menarik data real-time
+    const urlLive = '/api/pelanggan/me/riwayat?t=' + new Date().getTime();
+    
+    const response = await fetch(urlLive, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Gagal memuat data pelanggan');
+
+    const rows = await response.json();
+    const paymentResponse = await fetch('/api/pembayaran/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const paymentData = await paymentResponse.json();
+    customerPaymentData = paymentResponse.ok
+      ? paymentData
+      : { rekening: {}, pembayaran: [], error: paymentData.error || 'Gagal memuat status pembayaran.' };
+    renderPelangganData(rows || []);          
+    updateProfileStatsFromSpk(rows || []);    
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function renderLayananOptions(items){
+  const container = document.getElementById('layananOptions');
+  const total = document.getElementById('bookingTotal');
+
+  if (!container) return;
+
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="pkg-opt"><div class="name">Belum ada layanan aktif</div></div>';
+    if (total) total.textContent = formatCurrency(0);
+    return;
+  }
+
+  if (!selectedLayananId) {
+    selectedLayananId = items[0].id;
+  }
+
+  container.innerHTML = items.map((item) => `
+    <div class="pkg-opt ${item.id === selectedLayananId ? 'selected' : ''}" data-id="${item.id}" style="cursor:pointer;">
+      <div class="name">${item.nama}</div>
+      <div class="price">${formatCurrency(item.harga)}</div>
+      <div class="note">${item.deskripsi || `${item.durasi_menit || 45} menit`}</div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.pkg-opt').forEach((card) => {
+    card.addEventListener('click', () => {
+      selectedLayananId = Number(card.dataset.id);
+      renderLayananOptions(items);
+    });
+  });
+
+  if (total) {
+    const selected = items.find((item) => item.id === selectedLayananId);
+    total.textContent = formatCurrency(selected?.harga || 0);
+  }
+}
+
+async function loadLayananOptions(){
+  try {
+    const response = await fetch('/api/layanan');
+    if (!response.ok) {
+      throw new Error('Gagal memuat layanan');
+    }
+
+    layananCatalog = await response.json();
+    let bookingDraft = null;
+    try {
+      bookingDraft = JSON.parse(sessionStorage.getItem('cucimesin_booking_draft') || 'null');
+    } catch (error) {
+      sessionStorage.removeItem('cucimesin_booking_draft');
+    }
+
+    const requestedService = new URLSearchParams(window.location.search).get('layanan')?.trim();
+    const requestedLayanan = bookingDraft?.layanan_id
+      ? layananCatalog.find((item) => Number(item.id) === Number(bookingDraft.layanan_id))
+      : (requestedService
+          ? layananCatalog.find((item) => item.nama.toLowerCase() === requestedService.toLowerCase())
+          : null);
+    if (requestedLayanan) {
+      selectedLayananId = requestedLayanan.id;
+    }
+    renderLayananOptions(layananCatalog);
+
+    if (bookingDraft) {
+      const bookingFields = {
+        nama: 'bookingNama',
+        telepon: 'bookingTelepon',
+        email: 'bookingEmail',
+        plat_nomor: 'bookingPlatNomor',
+        merk_tipe: 'bookingMerkTipe',
+        tanggal: 'bookingTanggal',
+        waktu: 'bookingWaktu',
+        catatan: 'bookingCatatan'
+      };
+      Object.entries(bookingFields).forEach(([key, id]) => {
+        const field = document.getElementById(id);
+        if (field && bookingDraft[key]) field.value = bookingDraft[key];
+      });
+      sessionStorage.removeItem('cucimesin_booking_draft');
+    }
+
+    if (requestedLayanan || bookingDraft) showC('booking');
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function setBookingDefaults(user){
+  const bookingNama = document.getElementById('bookingNama');
+  const bookingTelepon = document.getElementById('bookingTelepon');
+  const bookingEmail = document.getElementById('bookingEmail');
+  const bookingTanggal = document.getElementById('bookingTanggal');
+  const bookingWaktu = document.getElementById('bookingWaktu');
+
+  if (bookingNama && user?.nama) bookingNama.value = user.nama;
+  if (bookingTelepon && user?.telepon) bookingTelepon.value = user.telepon;
+  if (bookingEmail && user?.email) bookingEmail.value = user.email;
+
+  if (bookingTanggal) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    bookingTanggal.min = `${yyyy}-${mm}-${dd}`;
+    bookingTanggal.value = bookingTanggal.min;
+  }
+
+  if (bookingWaktu) bookingWaktu.value = '10:00';
+}
+
+async function submitBooking(){
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    alert('Silakan masuk atau daftar sebelum membuat booking.');
+    showAuth('auth-login');
+    return;
+  }
+
+  const nama = document.getElementById('bookingNama')?.value.trim() || '';
+  const telepon = normalizeIdentifier(document.getElementById('bookingTelepon')?.value || '');
+  const email = document.getElementById('bookingEmail')?.value.trim() || '';
+  const plat_nomor = document.getElementById('bookingPlatNomor')?.value.trim() || '';
+  const merk_tipe = document.getElementById('bookingMerkTipe')?.value.trim() || '';
+  const tanggal = document.getElementById('bookingTanggal')?.value || '';
+  const waktu = document.getElementById('bookingWaktu')?.value || '';
+  const catatan = document.getElementById('bookingCatatan')?.value.trim() || '';
+
+  if (!nama || !telepon || !plat_nomor) {
+    alert('Mohon isi kelengkapan Nama, Nomor WhatsApp, dan Plat Nomor Anda.');
+    return;
+  }
+
+  if (!selectedLayananId) {
+    alert('Mohon pilih Paket Layanan di bagian kanan terlebih dahulu.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/booking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        nama,
+        telepon,
+        email,
+        plat_nomor,
+        merk_tipe,
+        layanan_id: selectedLayananId,
+        tanggal,
+        waktu,
+        catatan
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Booking gagal diproses');
+    }
+
+    alert(data.message || 'Booking berhasil dibuat.');
+    showC('home');
+    
+    // Refresh data beranda
+    if (token) {
+      await loadPelangganData(token);
+    }
+  } catch (error) {
+    alert(error.message || 'Booking gagal diproses');
+  }
+}
+
+function showC(id){
+  document.querySelectorAll('.cpage').forEach(p=>p.classList.remove('active'));
+  document.getElementById('c-'+id).classList.add('active');
+}
+
+async function parseJsonResponse(response){
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(text || 'Permintaan gagal');
+  }
+}
+
+async function login(){
+  if (window.location.protocol === 'file:') {
+    alert('Aplikasi harus dibuka melalui server lokal, misalnya http://localhost:3000/pelanggan-portal.html');
+    return;
+  }
+
+  const identifier = normalizeIdentifier(document.getElementById('loginIdentifier')?.value || '');
+  const password = document.getElementById('loginPassword')?.value || '';
+
+  if (!identifier || !password) {
+    alert('Masukkan nomor WhatsApp/Email dan password Anda.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password, role: 'pelanggan' })
+    });
+
+    const data = await parseJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Login gagal');
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    updateUserChip(data.user);
+    setBookingDefaults(data.user);
+    enterApp();
+    await Promise.all([loadPelangganData(data.token), loadLayananOptions(), loadCustomerProfile(data.token)]);
+  } catch (error) {
+    alert(error.message || 'Login gagal');
+  }
+}
+
+async function register(){
+  const nama = document.getElementById('registerNama')?.value.trim() || '';
+  const telepon = normalizeIdentifier(document.getElementById('registerTelepon')?.value || '');
+  const password = document.getElementById('registerPassword')?.value || '';
+  const passwordConfirm = document.getElementById('registerPasswordConfirm')?.value || '';
+
+  if (!nama || !telepon || !password) {
+    alert('Lengkapi nama, nomor WhatsApp, dan password Anda.');
+    return;
+  }
+
+  if (password.length < 8) {
+    alert('Password minimal 8 karakter.');
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    alert('Konfirmasi password tidak cocok.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama, telepon, password })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Registrasi gagal');
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    
+    updateUserChip(data.user);
+    setBookingDefaults(data.user); // MENGISI OTOMATIS NAMA & TELEPON KE FORM
+    enterApp();
+    
+    // MEMUAT PAKET LAYANAN DAN DATA PELANGGAN
+    await Promise.all([
+      loadPelangganData(data.token), 
+      loadLayananOptions(), 
+      loadCustomerProfile(data.token)
+    ]);
+  } catch (error) {
+    alert(error.message || 'Registrasi gagal');
+  }
+}
+
+async function restoreSession() {
+  migrateCustomerSession();
+  const token = localStorage.getItem(TOKEN_KEY);
+  const storedUser = localStorage.getItem(USER_KEY);
+
+  if (!token || !storedUser) return;
+
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // HANYA hapus sesi jika server dengan tegas menolak (401 Unauthorized / 403 Forbidden)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return;
+    }
+
+    // Jika server error (500) dll, abaikan saja (jangan hapus sesi)
+    if (!response.ok) return; 
+
+    const user = await response.json();
+    if (user.role !== 'pelanggan') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return;
+    }
+    
+    // Berhasil divalidasi, masukkan user ke tampilan aplikasi
+    updateUserChip(user);
+    setBookingDefaults(user);
+    enterApp(); 
+    
+    // Muat data pendukung
+    await Promise.all([
+      loadPelangganData(token), 
+      loadLayananOptions(), 
+      loadCustomerProfile(token)
+    ]);
+    
+  } catch (error) {
+    // Tampilkan error di console saja, JANGAN hapus token agar tidak logout sendiri
+    console.error("Gagal memulihkan sesi (Error Jaringan/JS):", error);
+  }
+} // <-- Pastikan kurung kurawal penutup ini ada di sini!
+  /* ===== PROFIL PELANGGAN (versi lengkap) ===== */
+
+function initialsFromName(name){
+  return (name || 'P')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase() || 'P';
+}
+
+function setProfileMessage(message, type){
+  const el = document.getElementById('profileMessage');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = 'profile-message' + (type ? ' ' + type : '');
+}
+
+function renderCustomerProfile(profile){
+  const nama = profile?.nama || '';
+  const telepon = profile?.telepon || '';
+  const email = profile?.email || '';
+  const alamat = profile?.alamat || '';
+  const kategori = profile?.kategori || 'Normal';
+
+  // Form field
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('profileNama', nama);
+  setVal('profileTelepon', telepon);
+  setVal('profileEmail', email);
+  setVal('profileAlamat', alamat);
+
+  // Hero
+  const heroName = document.getElementById('profileHeroName');
+  const heroPhone = document.getElementById('profileHeroPhone');
+  const heroEmail = document.getElementById('profileHeroEmail');
+  const heroBadge = document.getElementById('profileHeroBadge');
+  const avatar = document.getElementById('profileAvatar');
+  const securityPhone = document.getElementById('securityPhoneState');
+
+  if (heroName) heroName.textContent = nama || 'Pelanggan';
+  if (heroPhone) heroPhone.textContent = telepon || 'Belum ada nomor';
+  if (heroEmail) heroEmail.textContent = email || 'Belum ada email';
+  if (avatar) avatar.textContent = initialsFromName(nama);
+  if (securityPhone) securityPhone.textContent = telepon ? `Terdaftar: ${telepon}` : 'Belum terdaftar';
+
+  if (heroBadge) {
+    heroBadge.textContent = kategori.toUpperCase();
+    heroBadge.classList.toggle('b2b', kategori === 'B2B');
+  }
+
+  // Update user chip di header
+  const storedUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+  updateUserChip({ ...storedUser, nama, telepon, email });
+}
+
+async function loadCustomerProfile(token = localStorage.getItem(TOKEN_KEY) || ''){
+  if (!token) return;
+  try {
+    const response = await fetch('/api/pelanggan/me/profile', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat profil');
+    renderCustomerProfile(data);
+    setProfileMessage('');
+  } catch (error) {
+    setProfileMessage(error.message || 'Gagal memuat profil.', 'err');
+  }
+}
+
+async function saveCustomerProfile(){
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  const button = document.getElementById('saveProfileButton');
+
+  const payload = {
+    nama: document.getElementById('profileNama')?.value.trim() || '',
+    telepon: normalizeIdentifier(document.getElementById('profileTelepon')?.value || ''),
+    email: document.getElementById('profileEmail')?.value.trim() || '',
+    alamat: document.getElementById('profileAlamat')?.value.trim() || ''
+  };
+
+  if (!payload.nama) return setProfileMessage('Nama wajib diisi.', 'err');
+  if (!payload.telepon) return setProfileMessage('Nomor WhatsApp wajib diisi.', 'err');
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    return setProfileMessage('Format email tidak valid.', 'err');
+  }
+
+  button.disabled = true;
+  button.textContent = 'Menyimpan...';
+  setProfileMessage('Menyimpan perubahan...');
+
+  try {
+    const response = await fetch('/api/pelanggan/me/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan profil');
+
+    // Perbarui localStorage agar header ikut berubah tanpa reload
+    const stored = JSON.parse(localStorage.getItem(USER_KEY) || '{}');
+    localStorage.setItem(USER_KEY, JSON.stringify({ ...stored, ...data }));
+
+    renderCustomerProfile(data);
+    setBookingDefaults(data);
+    setProfileMessage('Profil berhasil disimpan.', 'ok');
+  } catch (error) {
+    setProfileMessage(error.message || 'Gagal menyimpan profil.', 'err');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Simpan Perubahan';
+  }
+}
+
+function toggleCustomerPasswordForm(show){
+  const form = document.getElementById('customerPasswordForm');
+  const shouldShow = typeof show === 'boolean' ? show : form.style.display === 'none';
+  form.style.display = shouldShow ? 'block' : 'none';
+  if (!shouldShow) {
+    form.reset();
+    document.getElementById('customerPasswordMessage').textContent = '';
+  }
+}
+
+async function changeCustomerPassword(event){
+  event.preventDefault();
+  const oldPassword = document.getElementById('customerOldPassword').value;
+  const newPassword = document.getElementById('customerNewPassword').value;
+  const confirmPassword = document.getElementById('customerConfirmPassword').value;
+  const message = document.getElementById('customerPasswordMessage');
+  const button = document.getElementById('customerPasswordSaveButton');
+
+  if (newPassword.length < 8) {
+    message.textContent = 'Kata sandi baru minimal 8 karakter.';
+    message.className = 'profile-message err';
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    message.textContent = 'Konfirmasi kata sandi tidak cocok.';
+    message.className = 'profile-message err';
+    return;
+  }
+
+  button.disabled = true;
+  message.textContent = 'Memperbarui kata sandi...';
+  message.className = 'profile-message';
+  try {
+    const response = await fetch('/api/auth/password', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`
+      },
+      body: JSON.stringify({ password_lama: oldPassword, password_baru: newPassword })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui kata sandi');
+
+    message.textContent = 'Kata sandi berhasil diperbarui.';
+    message.className = 'profile-message ok';
+    document.getElementById('customerPasswordForm').reset();
+  } catch (error) {
+    message.textContent = error.message || 'Gagal memperbarui kata sandi.';
+    message.className = 'profile-message err';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function logoutCustomer(){
+  if (!confirm('Yakin ingin keluar dari akun Anda?')) return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('cucimesin_token'); // legacy key migrasi
+  window.location.reload();
+}
+
+/* Hitung statistik dari daftar SPK */
+function updateProfileStatsFromSpk(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const total = list.length;
+  const totalSpent = list.reduce((sum, r) => sum + Number(r.total || 0), 0);
+  const selesai = list.filter(r => r.status === 'Selesai').length;
+  const aktif = list.filter(r => r.status === 'Menunggu' || r.status === 'Dikerjakan').length;
+
+  const elTotal = document.getElementById('profileStatTotalSpk');
+  const elSpent = document.getElementById('profileStatTotalSpent');
+  const elSelesai = document.getElementById('profileStatSelesai');
+  const elTotalSub = document.getElementById('profileStatTotalSpkSub');
+  const elSelesaiSub = document.getElementById('profileStatSelesaiSub');
+
+  if (elTotal) elTotal.textContent = total;
+  if (elSpent) elSpent.textContent = formatCurrency(totalSpent);
+  if (elSelesai) elSelesai.textContent = selesai;
+  if (elTotalSub) elTotalSub.textContent = aktif > 0 ? `${aktif} sedang berjalan` : 'SPK tercatat';
+  if (elSelesaiSub) elSelesaiSub.textContent = selesai > 0 ? 'Siap diambil' : 'Belum ada yang selesai';
+}
+
+window.addEventListener('DOMContentLoaded', restoreSession);
+</script>
+
+</body>
+</html>

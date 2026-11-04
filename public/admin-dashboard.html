@@ -1,0 +1,2748 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuciMesin — Admin Dashboard</title>
+<style>
+  :root{
+    --navy:#102d5b;
+    --green-dark:#0e2347;
+    --green-darker:#0a1d3d;
+    --green:#1f5ae8;
+    --green-mid:#163ca0;
+    --red:#d92d2d;
+    --red-dark:#a61d1d;
+    --blue:#1d5ef5;
+    --blue-dark:#103ea7;
+    --ink:#18283e;
+    --muted:#5d6d82;
+    --bg-soft:#eef4ff;
+    --border:#dfe8f7;
+    --yellow-bg:#fff2d9;
+    --yellow-text:#9a6514;
+    --green-bg:#eaf1ff;
+    --green-text:#214fc0;
+    --orange-bg:#ffe9df;
+    --orange-text:#ba4d2d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg, #edf4ff 0%, #f8fafd 100%);
+    line-height:1.5;
+    font-size:14px;
+  }
+  a{text-decoration:none;color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  ul{list-style:none;}
+  .btn, .sb-nav button, .search-box, .input, select{
+    transition:all .18s ease;
+  }
+
+  .admin-login-overlay{
+    position:fixed;inset:0;background:rgba(20,25,22,.65);display:flex;
+    align-items:center;justify-content:center;padding:24px;z-index:200;
+  }
+  .admin-login-overlay.hidden{display:none;}
+  .admin-login-card{
+    width:min(100%, 420px);background:#fff;border-radius:16px;padding:28px;
+    box-shadow:0 24px 70px rgba(0,0,0,.25);
+  }
+  .admin-login-card h2{font-size:24px;font-weight:800;margin:18px 0 8px;}
+  .admin-login-card p{font-size:13px;color:var(--muted);margin-bottom:22px;}
+  .admin-login-card .field{margin-bottom:18px;max-width:none;}
+  .admin-login-card .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .admin-login-card .field input{width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;}
+  .admin-login-card .btn-admin-login{width:100%;border:none;border-radius:8px;padding:13px;font-weight:700;font-size:13.5px;color:#fff;background:linear-gradient(135deg, var(--blue) 0%, var(--red) 100%);}
+  .admin-login-card .btn-admin-login:hover{background:linear-gradient(135deg, var(--blue-dark) 0%, var(--red-dark) 100%);}
+  .admin-login-error{min-height:18px;margin-top:12px;font-size:12px;color:var(--red);font-weight:700;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{
+    width:220px;
+    background:linear-gradient(180deg, var(--green-darker) 0%, var(--navy) 100%);
+    color:#fff;
+    flex-shrink:0;
+    padding:22px 16px;
+    position:sticky;top:0;height:100vh;
+    display:flex;flex-direction:column;
+  }
+  .sb-logo{display:flex;align-items:center;gap:9px;padding:0 6px 24px;}
+  .sb-logo .ic{
+    width:30px;height:30px;border-radius:8px;
+    background:linear-gradient(135deg, var(--red) 0%, var(--blue) 100%);display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .sb-logo .txt{line-height:1.15;}
+  .sb-logo .txt .name{font-size:15px;font-weight:800;}
+  .sb-logo .txt .tag{font-size:8.5px;font-weight:700;letter-spacing:1px;color:var(--red);}
+  .sb-nav{display:flex;flex-direction:column;gap:3px;flex:1;}
+  .sb-nav button{
+    display:flex;align-items:center;gap:11px;
+    background:none;border:none;color:#aab8ae;
+    font-size:13.5px;font-weight:600;
+    padding:10px 12px;border-radius:8px;
+    text-align:left;width:100%;
+    transition:background .15s,color .15s;
+  }
+  .sb-nav button .ic{width:16px;text-align:center;font-size:14px;}
+  .sb-nav button:hover{background:rgba(29,94,245,0.18);color:#fff;}
+  .sb-nav button.active{background:linear-gradient(135deg, var(--blue) 0%, var(--red) 100%);color:#fff;}
+
+  /* Topbar */
+  main{flex:1;min-width:0;background:linear-gradient(180deg,#f8faf9 0%, var(--bg-soft) 100%);}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;
+    background:rgba(255,255,255,0.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(118, 133, 127, 0.18);
+    box-shadow:0 8px 20px rgba(24, 39, 32, 0.03);
+    position:sticky;top:0;z-index:10;
+  }
+  .topbar h1{font-size:19px;font-weight:800;color:var(--ink);}
+  .topbar .sub{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .top-actions{display:flex;align-items:center;gap:14px;}
+  .search-box{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,0.9);
+    border:1px solid rgba(162, 174, 168, 0.5);
+    border-radius:8px;
+    padding:9px 14px;
+    font-size:12.5px;color:var(--muted);
+    min-width:240px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .search-box input{width:100%;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;}
+  .search-box input::placeholder{color:var(--muted);}
+  .bell{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--bg-soft);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+
+  .page{display:none;padding:26px 32px 60px;}
+  .page.active{display:block;}
+  .page .card,
+  .page .stat-card,
+  .page .tek-card,
+  .page .settings-layout{
+    box-shadow:0 10px 24px rgba(17, 32, 27, 0.05);
+  }
+  .stat-card:hover,
+  .card:hover,
+  .tek-card:hover{
+    box-shadow:0 14px 28px rgba(17, 32, 27, 0.08);
+    transform:translateY(-1px);
+  }
+
+  /* Banner */
+  .banner{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--green-bg);
+    border:1px solid #cdeada;
+    border-radius:10px;
+    padding:12px 18px;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--green-text);
+    margin-bottom:22px;
+  }
+  .banner .r{color:var(--red);}
+
+  /* Stat cards */
+  .stat-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px;
+  }
+  .stat-card{
+    background:linear-gradient(180deg,#ffffff 0%, #f9fbfa 100%);
+    border:1px solid rgba(162, 174, 168, 0.38);
+    border-radius:12px;
+    padding:18px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .stat-card::before{
+    content:'';
+    position:absolute;
+    inset:0 auto auto 0;
+    width:100%;
+    height:3px;
+    background:linear-gradient(90deg, var(--blue), var(--red));
+  }
+  .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+  .stat-top .label{font-size:12px;color:var(--muted);font-weight:600;}
+  .stat-top .icon{
+    width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:13px;background:var(--bg-soft);
+  }
+  .stat-val{font-size:22px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+  .stat-note{font-size:11.5px;font-weight:600;color:var(--green-text);}
+  .stat-note.muted{color:var(--muted);}
+
+  /* Content grid */
+  .grid-2{display:grid;grid-template-columns:2.2fr 1fr;gap:18px;}
+  .card{
+    background:linear-gradient(180deg,#ffffff 0%, #fbfcfb 100%);
+    border:1px solid rgba(162, 174, 168, 0.42);
+    border-radius:12px;
+    padding:20px 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+  .card-head h3{font-size:15px;font-weight:800;}
+  .card-head p{font-size:12px;color:var(--muted);margin-top:3px;}
+  .btn{
+    border:none;border-radius:8px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 12px rgba(22, 41, 74, 0.08);
+  }
+  .btn-outline{background:#fff;border:1px solid var(--border);color:var(--ink);}
+  .btn-outline:hover{background:var(--bg-soft);box-shadow:0 8px 16px rgba(17, 32, 27, 0.06);}
+  .btn-green{background:linear-gradient(135deg, var(--blue) 0%, var(--red) 100%);color:#fff;box-shadow:0 10px 18px rgba(29,94,245,0.18);}
+  .btn-green:hover{background:linear-gradient(135deg, var(--blue-dark) 0%, var(--red-dark) 100%);}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-red:hover{background:var(--red-dark);}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-blue:hover{background:var(--blue-dark);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{
+    text-align:left;font-size:10.5px;letter-spacing:.3px;color:var(--muted);
+    text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700;
+  }
+  td{padding:12px 10px;font-size:12.5px;border-bottom:1px solid var(--border);color:#354039;}
+  tr:last-child td{border-bottom:none;}
+  .mono{color:var(--green-text);font-weight:700;}
+  .tag{
+    display:inline-block;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;
+  }
+  .tag.yellow{background:var(--yellow-bg);color:var(--yellow-text);}
+  .tag.green{background:var(--green-bg);color:var(--green-text);}
+  .tag.orange{background:var(--orange-bg);color:var(--orange-text);}
+
+  /* Weekly trend */
+  .bars{display:flex;align-items:flex-end;gap:8px;height:110px;margin:14px 0 10px;}
+  .bars .bar{flex:1;border-radius:4px 4px 0 0;background:var(--green-mid);}
+  .bars .bar.light{background:#d8dedb;}
+  .bar-labels{display:flex;gap:8px;font-size:10px;color:var(--muted);text-align:center;margin-bottom:16px;}
+  .bar-labels span{flex:1;}
+  .trend-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;}
+  .trend-foot b{color:var(--ink);}
+
+  /* Filters row */
+  .filters{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+  select, .input{
+    border:1px solid var(--border);background:#fff;border-radius:8px;
+    padding:9px 13px;font-size:12.5px;color:var(--ink);font-family:inherit;
+  }
+  .spacer{flex:1;}
+  .pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px;font-size:12px;color:var(--muted);}
+  .pagination .pg{
+    width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;
+  }
+  .pagination .pg.active{background:var(--green-mid);color:#fff;border-color:var(--green-mid);}
+
+  /* Pelanggan search bar */
+  .search-row{display:flex;gap:12px;margin-bottom:18px;justify-content:space-between;}
+  .search-row .input{flex:1;max-width:320px;}
+
+  /* Teknisi */
+  .stat-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;max-width:640px;}
+  .tek-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .tek-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px;}
+  .tek-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .avatar{width:42px;height:42px;border-radius:50%;background:#d9dfdc;flex-shrink:0;}
+  .tek-name{font-size:14px;font-weight:800;margin-bottom:4px;}
+  .progress{height:6px;border-radius:4px;background:#e1f3e6;overflow:hidden;width:90px;}
+  .progress i{display:block;height:100%;background:var(--green-text);width:35%;}
+  .tek-body{font-size:12px;color:var(--muted);margin-bottom:14px;}
+  .tek-body b{color:var(--ink);display:block;margin-top:3px;}
+
+  /* Laporan */
+  .report-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .report-stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .report-stat .label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;}
+  .report-stat .value{font-size:22px;font-weight:800;margin-top:7px;}
+  .rep-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;}
+  .linechart{width:100%;height:150px;}
+  .report-axis{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;border-top:1px solid var(--border);padding-top:8px;}
+  .report-legend{display:grid;gap:6px;text-align:center;font-size:12px;color:var(--muted);}
+  .report-legend b{color:var(--ink);}
+  .report-error{min-height:18px;color:var(--red);font-size:12px;margin:-8px 0 14px;}
+  .donut-wrap{display:flex;align-items:center;justify-content:center;padding:14px 0;}
+  .donut{
+    width:130px;height:130px;border-radius:50%;
+    background:conic-gradient(var(--blue) 0% 65%, #e5e8e6 65% 100%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .donut-inner{
+    width:92px;height:92px;border-radius:50%;background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .donut-inner .pct{font-size:19px;font-weight:800;}
+  .donut-inner .lbl{font-size:10px;color:var(--muted);}
+
+  /* Keuangan */
+  #page-keuangan{max-width:1440px;}
+  .finance-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;margin-bottom:16px;background:#fff;border:1px solid var(--border);border-radius:12px;}
+  .finance-toolbar label{font-size:12px;font-weight:700;color:var(--muted);}
+  .finance-toolbar .input{min-width:145px;}
+  .finance-toolbar .spacer{flex:1;}
+  .finance-period{font-size:11.5px;color:var(--muted);}
+  .finance-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+  .finance-metric{position:relative;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+  .finance-metric:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:#2563eb;}
+  .finance-metric.expense:before{background:#dc5353;}
+  .finance-metric.net:before{background:#16a36a;}
+  .finance-metric .label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.35px;}
+  .finance-metric .value{font-size:clamp(19px,2.2vw,27px);line-height:1.25;font-weight:800;margin-top:8px;overflow-wrap:anywhere;}
+  .finance-metric.income .value{color:#147a4a;}
+  .finance-metric.expense .value{color:#bd3535;}
+  .finance-metric.net.negative .value{color:#bd3535;}
+  .finance-metric .hint{font-size:11px;color:var(--muted);margin-top:5px;}
+  .finance-insights{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr);gap:16px;margin-bottom:16px;}
+  .finance-panel{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px;min-width:0;}
+  .finance-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .finance-panel-head h3{font-size:14px;font-weight:800;}
+  .finance-panel-head p{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .finance-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);}
+  .finance-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .finance-legend i{width:8px;height:8px;border-radius:50%;background:#168653;}
+  .finance-legend .out i{background:#d94b4b;}
+  .finance-days{display:grid;gap:9px;}
+  .finance-day{display:grid;grid-template-columns:68px minmax(0,1fr) minmax(105px,.7fr);align-items:center;gap:10px;font-size:10.5px;}
+  .finance-day-label{color:var(--muted);white-space:nowrap;}
+  .finance-day-bars{display:grid;gap:3px;}
+  .finance-day-track{height:7px;border-radius:999px;background:#f0f2f5;overflow:hidden;}
+  .finance-day-fill{height:100%;min-width:0;border-radius:999px;background:#168653;}
+  .finance-day-fill.out{background:#d94b4b;}
+  .finance-day-total{text-align:right;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .finance-category-group+.finance-category-group{margin-top:15px;padding-top:14px;border-top:1px solid var(--border);}
+  .finance-category-title{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:800;margin-bottom:9px;}
+  .finance-category-title.income{color:#147a4a;}
+  .finance-category-title.expense{color:#bd3535;}
+  .finance-category-row{display:grid;grid-template-columns:minmax(72px,.8fr) minmax(80px,1fr) auto;align-items:center;gap:9px;margin:8px 0;font-size:10.5px;}
+  .finance-category-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
+  .finance-category-track{height:7px;border-radius:999px;background:#f0f2f5;overflow:hidden;}
+  .finance-category-fill{height:100%;border-radius:999px;background:#168653;}
+  .finance-category-fill.out{background:#d94b4b;}
+  .finance-category-value{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700;}
+  .finance-empty{padding:20px 12px;text-align:center;color:var(--muted);font-size:12px;}
+  .finance-table-wrap{overflow-x:auto;}
+  .finance-search{width:min(280px,100%);}
+  .finance-type{display:inline-block;min-width:68px;text-align:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800;}
+  .finance-type.in{background:#e7f6ee;color:#147a4a;}
+  .finance-type.out{background:#fff0f0;color:#bd3535;}
+  .finance-amount{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .finance-amount.in{color:#147a4a;}
+  .finance-amount.out{color:#bd3535;}
+  .finance-subsections{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.6fr);gap:16px;margin-top:20px;align-items:start;}
+  .finance-subsections .card{margin:0!important;min-width:0;}
+  .finance-account-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+  .finance-account-fields .field{max-width:none;}
+  .finance-account-fields .field:last-child{grid-column:1/-1;}
+  #paymentAdminError{margin:0 18px 12px;}
+  .trx-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .trx-row:last-child{border-bottom:none;}
+  .trx-ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .trx-ic.in{background:var(--green-bg);color:var(--green-text);}
+  .trx-ic.out{background:#fde3e3;color:var(--red);}
+  .trx-mid{flex:1;}
+  .trx-mid .t{font-size:13px;font-weight:700;}
+  .trx-mid .s{font-size:11.5px;color:var(--muted);}
+  .trx-amt{font-size:13px;font-weight:800;}
+  .trx-amt.pos{color:var(--green-text);}
+  .trx-amt.neg{color:var(--red);}
+  .muted{font-size:11px;color:var(--muted);margin-top:3px;}
+  @media(max-width:900px){
+    .finance-insights{grid-template-columns:1fr;}
+    .finance-subsections{grid-template-columns:1fr;}
+  }
+  @media(max-width:600px){
+    .finance-summary{grid-template-columns:1fr;}
+    .finance-metric{padding:15px 17px;}
+    .finance-toolbar{align-items:stretch;}
+    .finance-toolbar label{width:100%;}
+    .finance-toolbar .input{flex:1;min-width:calc(50% - 8px);}
+    .finance-toolbar .spacer{display:none;}
+    .finance-toolbar .btn{flex:1;}
+    .finance-day{grid-template-columns:55px minmax(0,1fr) 86px;gap:7px;}
+    .finance-panel{padding:15px;}
+    .finance-account-fields{grid-template-columns:1fr;}
+    .finance-account-fields .field:last-child{grid-column:auto;}
+  }
+
+  /* Pengaturan */
+  .settings-layout{display:grid;grid-template-columns:180px 1fr;gap:0;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;max-width:720px;}
+  .settings-nav{background:var(--bg-soft);padding:18px 12px;border-right:1px solid var(--border);}
+  .settings-nav button{
+    display:block;width:100%;text-align:left;background:none;border:none;
+    padding:10px 12px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:4px;
+  }
+  .settings-nav button.active{background:#dfe6f7;color:var(--blue-dark);}
+  .settings-body{padding:26px 28px;}
+  .settings-body h3{font-size:15px;font-weight:800;margin-bottom:20px;}
+  .field{margin-bottom:18px;max-width:420px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .field input, .field textarea{
+    width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;
+    padding:11px 13px;font-size:13px;font-family:inherit;color:var(--ink);
+  }
+  .field .hint{font-size:11px;color:var(--muted);margin-top:6px;}
+  .upload-row{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .upload-circle{
+    width:52px;height:52px;border-radius:50%;background:var(--bg-soft);
+    border:2px dashed #c7cec9;
+  }
+  .upload-row .t{font-size:12.5px;font-weight:700;}
+  .upload-row .s{font-size:11px;color:var(--muted);}
+  .two-field{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:420px;}
+
+  /* Modal */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(20,25,22,.55);
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal{
+    background:#fff;border-radius:12px;width:100%;max-width:640px;
+    max-height:88vh;overflow-y:auto;
+  }
+  .modal-header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:20px 26px;border-bottom:1px solid var(--border);
+  }
+  .modal-header h3{font-size:16px;font-weight:800;}
+  .modal-header .ref{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .modal-close{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;}
+  .modal-body{padding:24px 26px;}
+  .modal-section{margin-bottom:22px;}
+  .modal-section h4{font-size:12.5px;font-weight:800;color:var(--green-text);margin-bottom:14px;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 26px;border-top:1px solid var(--border);}
+  .total-box{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--green-bg);border:1px solid #cdeada;border-radius:8px;
+    padding:14px 18px;margin-top:6px;
+  }
+  .total-box .l{font-size:13px;font-weight:700;}
+  .total-box .v{font-size:17px;font-weight:800;color:var(--green-text);}
+
+  /* SPK detail modal specifics */
+  .spk-info-block{margin-bottom:18px;}
+  .spk-info-block .k{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px;}
+  .spk-info-block .v{font-size:13.5px;font-weight:700;}
+  .spk-info-block .v2{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .checklist li{display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:9px;color:#354039;}
+  .checklist li .box{
+    width:16px;height:16px;border-radius:4px;border:1.5px solid #c7cec9;
+    display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;
+  }
+  .checklist li.done .box{background:var(--green-mid);border-color:var(--green-mid);color:#fff;}
+  .photo-slots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px;}
+  .photo-slot{
+    border:1.5px dashed var(--border);border-radius:8px;height:90px;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;
+    font-size:11.5px;color:var(--muted);
+  }
+
+  @media(max-width:1100px){
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+    .rep-grid{grid-template-columns:1fr;}
+    .tek-grid{grid-template-columns:1fr;}
+  }
+  @media(max-width:700px){
+    .report-stat-grid{grid-template-columns:repeat(2,1fr);}
+    .kas-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="adminLoginOverlay" class="admin-login-overlay">
+  <div class="admin-login-card">
+    <div class="sb-logo">
+      <div class="ic">🛡️</div>
+      <div class="txt">
+        <div class="name">CuciMesin</div>
+        <div class="tag">ADMIN</div>
+      </div>
+    </div>
+    <h2>Masuk Admin</h2>
+    <p>Gunakan akun admin resmi untuk mengakses dashboard operasional CuciMesin.</p>
+    <form id="adminLoginForm" onsubmit="adminLogin(event)">
+      <div class="field">
+        <label for="adminLoginIdentifier">Email admin atau nomor WhatsApp</label>
+        <input id="adminLoginIdentifier" type="text" autocomplete="username" placeholder="admin@cucimesinmobil.id" required>
+      </div>
+      <div class="field">
+        <label for="adminLoginPassword">Password</label>
+        <input id="adminLoginPassword" type="password" autocomplete="current-password" placeholder="Masukkan password" required>
+      </div>
+      <button class="btn-admin-login" type="submit">Masuk ke Dashboard</button>
+      <div id="adminLoginError" class="admin-login-error" role="alert" aria-live="polite"></div>
+    </form>
+  </div>
+</div>
+
+<div class="app" id="adminApp">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="ic">🛡️</div>
+      <div class="txt">
+        <div class="name">CuciMesin</div>
+        <div class="tag">#PASTIBERSIH</div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <button class="active" onclick="showPage('dashboard', this, 'Dashboard Utama', 'Ikhtisar performa CuciMesin Carwash hari ini')"><span class="ic">▦</span>Dashboard</button>
+      <button onclick="showPage('booking', this, 'Booking Masuk', 'Kelola booking online pelanggan dan mitra'); loadBookingData(); loadMitraBookings();"><span class="ic">📅</span>Booking Masuk</button>
+      <button onclick="showPage('mitra', this, 'Mitra B2B', 'Kelola mitra showroom dan booking armada'); loadMitraAdminData();"><span class="ic">🏢</span>Mitra B2B</button>
+      <button onclick="showPage('order', this, 'Manajemen Order &amp; SPK', 'Buat, cetak, dan pantau Surat Perintah Kerja (SPK)'); loadOrderData();"><span class="ic">☰</span>Antrian/Order</button>
+      <button onclick="showPage('pelanggan', this, 'Manajemen Pelanggan', 'Kelola data dan riwayat pelanggan Anda'); loadPelangganData();"><span class="ic">👥</span>Pelanggan</button>
+      <button onclick="showPage('teknisi', this, 'Status Teknisi &amp; SPK', 'Pantau beban kerja dan status tim teknisi'); loadTeknisiData();"><span class="ic">🔧</span>Teknisi</button>
+      <button onclick="showPage('laporan', this, 'Laporan Kinerja', 'Analisis tren dan performa bisnis'); loadReport();"><span class="ic">📊</span>Laporan</button>
+      <button onclick="showPage('keuangan', this, 'Arus Kas Keuangan', 'Pantau pemasukan, pengeluaran, dan konfirmasi pembayaran'); loadKeuanganData(); loadPaymentAdminData(); loadPaymentAccount();"><span class="ic">$</span>Keuangan</button>
+      <button onclick="showPage('pengaturan', this, 'Pengaturan Sistem', 'Kelola harga, layanan, dan profil bisnis')"><span class="ic">⚙</span>Pengaturan</button>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard Utama</h1>
+        <div class="sub" id="pageSub">Ikhtisar performa CuciMesin Carwash hari ini</div>
+      </div>
+      <div class="top-actions">
+        <label class="search-box"><span aria-hidden="true">🔍</span><input id="dashboardSearch" type="search" placeholder="Cari SPK, plat, pelanggan" onkeydown="if(event.key==='Enter') searchDashboardSpk()"></label>
+        <div class="bell">🔔</div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="banner">
+        <span>🛡️ Engine Wash Specialist: #PastiBersih,PastiTerjangkau!</span>
+        <span class="r">CUCI AMAN &amp; DETAILED</span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-top"><span class="label">Total Order Hari Ini</span><span class="icon">📄</span></div>
+          <div class="stat-val" id="stat-total-order">0 SPK</div>
+          <div class="stat-note" id="stat-total-order-delta">Memuat...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><span class="label">Dalam Pengerjaan</span><span class="icon">▶️</span></div>
+          <div class="stat-val" id="stat-dikerjakan">0 Unit</div>
+          <div class="stat-note muted" id="stat-teknisi-standby">Memuat...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><span class="label">Selesai Hari Ini</span><span class="icon">✅</span></div>
+          <div class="stat-val" id="stat-selesai-hari-ini">0 Unit</div>
+          <div class="stat-note" id="stat-selesai-note">Memuat...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><span class="label">Revenue Hari Ini</span><span class="icon">💲</span></div>
+          <div class="stat-val" id="stat-revenue">Rp 0</div>
+          <div class="stat-note" id="stat-revenue-note">Memuat...</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Antrian &amp; Live SPK</h3>
+              <p>Daftar mobil dalam antrean pencucian hari ini</p>
+            </div>
+            <button class="btn btn-outline" onclick="loadDashboardData()">Refresh Antrian</button>
+          </div>
+          <table>
+            <thead><tr><th>No. SPK</th><th>Pelanggan</th><th>Plat Nomor</th><th>Layanan</th><th>Teknisi/Status</th><th>Waktu</th></tr></thead>
+            <tbody id="antrianTableBody">
+              <tr><td colspan="6">Memuat antrian...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h3>Tren Mingguan</h3><p>Jumlah unit masuk 7 hari terakhir</p></div></div>
+          <div class="bars" id="trendBars">
+            <div class="bar light" style="height:38%"></div>
+            <div class="bar light" style="height:46%"></div>
+            <div class="bar light" style="height:55%"></div>
+            <div class="bar" style="height:65%"></div>
+            <div class="bar" style="height:78%"></div>
+            <div class="bar" style="height:92%"></div>
+            <div class="bar" style="height:70%"></div>
+          </div>
+          <div class="bar-labels" id="trendLabels"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div>
+          <div class="trend-foot">
+            <div>RATA-RATA HARIAN<br><b id="trendAverage">0 SPK/Hari</b></div>
+            <div>HARI TERSIBUK<br><b id="trendBusiest">-</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKING MASUK -->
+    <div class="page" id="page-booking">
+      <div class="card-head" style="margin-bottom:16px;">
+        <div>
+          <h3>Booking Online Pelanggan</h3>
+          <p>Data booking dari formulir publik akan tampil di sini.</p>
+        </div>
+        <button class="btn btn-outline" onclick="loadBookingData()">Refresh Booking</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table>
+          <thead><tr><th>ID</th><th>Pelanggan</th><th>Kendaraan</th><th>Layanan</th><th>Jadwal</th><th>Status</th></tr></thead>
+          <tbody id="bookingTableBody">
+            <tr><td colspan="6">Memuat booking...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="bookingPagination"></div>
+      <div class="card" style="margin-top:22px;">
+        <div class="card-head">
+          <div><h3>Booking Armada Mitra</h3><p>Booking yang dikirim melalui portal mitra akan tampil di sini.</p></div>
+          <button class="btn btn-outline" type="button" onclick="loadMitraBookings()">Refresh Booking Mitra</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Mitra / Kontak</th><th>Kendaraan</th><th>Layanan</th><th>Jadwal</th><th>Catatan</th><th>Status / Aksi</th></tr></thead>
+            <tbody id="adminBookingArmadaRows"><tr><td colspan="6">Memuat booking armada mitra...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MITRA B2B -->
+    <div class="page" id="page-mitra">
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-head">
+          <div><h3>Daftar Mitra</h3><p>Profil dan jumlah armada mitra yang terdaftar.</p></div>
+          <button class="btn btn-outline" type="button" onclick="loadMitraAdminData()">Refresh</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Showroom / PIC</th><th>Kontak</th><th>Armada</th><th>Total SPK</th><th>Status Akun</th></tr></thead>
+            <tbody id="adminMitraRows"><tr><td colspan="5">Memuat mitra...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div><h3>Booking Armada Masuk</h3><p>Booking mitra dapat diproses, dibatalkan, atau dikonversi menjadi SPK per unit.</p></div>
+          <button class="btn btn-outline" type="button" onclick="loadMitraAdminData()">Refresh Booking</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Mitra / Kontak</th><th>Kendaraan</th><th>Layanan</th><th>Jadwal</th><th>Catatan</th><th>Status / Aksi</th></tr></thead>
+            <tbody id="adminMitraBookingRows"><tr><td colspan="6">Memuat booking armada...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="margin-top:18px;">
+        <div class="card-head">
+          <div><h3>SPK Selesai Siap Ditagihkan</h3><p>Terbitkan invoice kolektif untuk pekerjaan mitra yang sudah selesai; invoice langsung tersedia di portal mitra.</p></div>
+          <button class="btn btn-outline" type="button" onclick="loadMitraAdminData()">Refresh Tagihan</button>
+        </div>
+        <div style="padding:0 18px 14px;max-width:280px;">
+          <label for="mitraInvoiceDueDate" style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;">Jatuh tempo invoice</label>
+          <input id="mitraInvoiceDueDate" class="input" type="date">
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Mitra</th><th>Jumlah Unit</th><th>Periode Pengerjaan</th><th>Subtotal</th><th>Diskon</th><th>Total Tagihan</th><th>Aksi</th></tr></thead>
+            <tbody id="adminMitraBillableRows"><tr><td colspan="7">Memuat SPK siap ditagihkan...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="margin-top:18px;">
+        <div class="card-head">
+          <div><h3>Laporan Pembayaran Invoice</h3><p>Verifikasi transfer yang dilaporkan mitra sebelum mencatatnya sebagai pemasukan.</p></div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Invoice</th><th>Mitra / Kontak</th><th>Nominal</th><th>Dilaporkan</th><th>Keputusan</th></tr></thead>
+            <tbody id="adminMitraPaymentRows"><tr><td colspan="5">Memuat laporan pembayaran...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="adminMitraError" class="report-error" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- ORDER / SPK -->
+    <div class="page" id="page-order">
+      
+      <!-- Area 1: Filter Dinamis -->
+      <div class="filters">
+        <input type="date" id="filterOrderDate" class="input" onchange="loadOrderData()">
+        <select id="filterOrderStatus" class="input" onchange="loadOrderData()">
+          <option value="">Semua Status</option>
+          <option value="Menunggu">Menunggu</option>
+          <option value="Dikerjakan">Dikerjakan</option>
+          <option value="Selesai">Selesai</option>
+          <option value="Batal">Batal</option>
+        </select>
+        <button class="btn btn-outline" onclick="loadOrderData()">↻ Refresh Data</button>
+        <div class="spacer"></div>
+        <button class="btn btn-green" onclick="openModal('modalSpkNew')">+ SPK Baru</button>
+      </div>
+
+      <!-- Area 2: Tabel Data (Yang sebelumnya terhapus) -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table>
+          <thead>
+            <tr>
+              <th>No. SPK</th>
+              <th>Tanggal</th>
+              <th>Pelanggan</th>
+              <th>Kategori</th>
+              <th>Jenis Layanan</th>
+              <th>Harga</th>
+              <th>Teknisi</th>
+              <th>Teknisi/Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="orderTableBody">
+            <tr><td colspan="9">Memuat data SPK...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="pagination">
+        <span>Menampilkan data live SPK</span>
+      </div>
+      
+    </div>
+
+    <!-- PELANGGAN -->
+    <div class="page" id="page-pelanggan">
+      <div class="search-row">
+        <input id="pelangganSearch" class="input" placeholder="Cari nama atau nomor WA..." oninput="renderPelangganTable()" style="flex:1;max-width:320px;">
+        <select id="pelangganKategoriFilter" onchange="renderPelangganTable()"><option value="">Semua kategori</option><option value="B2B">B2B</option><option value="Normal">Normal</option></select>
+        <div class="spacer"></div>
+        <button class="btn btn-blue" type="button" onclick="openModal('modalPelangganForm')">+ Tambah Data</button>
+      </div>
+      <div class="card" style="padding:0;">
+        <table>
+          <thead><tr><th>Nama Pelanggan</th><th>Kontak (WA)</th><th>Kategori</th><th>Total Cuci</th></tr></thead>
+          <tbody id="pelangganTableBody">
+            <tr><td colspan="4">Memuat data pelanggan...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+<div class="modal-overlay" id="modalPelangganForm">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Tambah Pelanggan</h3>
+      <button class="modal-close" type="button" onclick="closeModal('modalPelangganForm')">✕</button>
+    </div>
+    <form id="pelangganForm" onsubmit="savePelanggan(event)">
+      <div class="modal-body">
+        <div class="field"><label for="pelangganNamaBaru">Nama Lengkap</label><input id="pelangganNamaBaru" maxlength="150" required></div>
+        <div class="field"><label for="pelangganTeleponBaru">Nomor WhatsApp</label><input id="pelangganTeleponBaru" maxlength="40" required></div>
+        <div class="field"><label for="pelangganEmailBaru">Email (opsional)</label><input id="pelangganEmailBaru" type="email" maxlength="191"></div>
+        <div class="field"><label for="pelangganAlamatBaru">Alamat (opsional)</label><textarea id="pelangganAlamatBaru" rows="3"></textarea></div>
+        <div class="field"><label for="pelangganKategoriBaru">Kategori</label><select id="pelangganKategoriBaru"><option value="Normal">Normal</option><option value="B2B">B2B</option></select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" type="button" onclick="closeModal('modalPelangganForm')">Batal</button>
+        <button class="btn btn-blue" id="savePelangganBtn" type="submit">Simpan Pelanggan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+   <!-- TEKNISI -->
+    <div class="page" id="page-teknisi">
+      <div class="search-row">
+        <input id="teknisiSearch" class="input" placeholder="Cari nama atau kontak teknisi..." oninput="renderTeknisiCards()" style="flex:1;max-width:320px;">
+        <div class="spacer"></div>
+        <button class="btn btn-blue" onclick="openTeknisiModal()">+ Tambah Teknisi</button>
+      </div>
+
+      <div class="stat-grid-2">
+        <div class="stat-card"><div class="stat-top"><span class="label">TEKNISI AKTIF</span></div><div class="stat-val" id="teknisiAktifCount">0 Orang</div></div>
+        <div class="stat-card"><div class="stat-top"><span class="label">RATA-RATA WAKTU PENGERJAAN</span></div><div class="stat-val" id="teknisiRataWaktu">0 Menit</div></div>
+      </div>
+      
+      <div class="tek-grid" id="teknisiCardsContainer">
+        <div class="tek-card"><div class="tek-top"><div class="avatar"></div><div><div class="tek-name">Memuat data...</div></div></div></div>
+      </div>
+    </div>
+    <!-- MODAL: Tambah / Edit Teknisi -->
+<div class="modal-overlay" id="modalTeknisiForm">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="formTeknisiTitle">Tambah Teknisi Baru</h3>
+      <button class="modal-close" onclick="closeModal('modalTeknisiForm')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="formTeknisiId">
+      <div class="field">
+        <label>Nama Lengkap</label>
+        <input id="formTeknisiNama" type="text" placeholder="Masukkan nama teknisi">
+      </div>
+      <div class="two-field" style="max-width:none;">
+        <div class="field" style="max-width:none;">
+          <label>Email (Opsional)</label>
+          <input id="formTeknisiEmail" type="email" placeholder="teknisi@cucimesin.id">
+        </div>
+        <div class="field" style="max-width:none;">
+          <label>Nomor WhatsApp</label>
+          <input id="formTeknisiTelepon" type="text" placeholder="0812...">
+        </div>
+      </div>
+      <div class="field">
+        <label>Password (Untuk Login Aplikasi Teknisi)</label>
+        <input id="formTeknisiPassword" type="password" placeholder="Minimal 8 karakter (Kosongkan jika tidak ingin mengubah sandi lama)">
+      </div>
+      <div class="field">
+        <label>Status Kerja</label>
+        <select id="formTeknisiStatus" style="width:100%;padding:11px 13px;">
+          <option value="1">Aktif</option>
+          <option value="0">Non-Aktif</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalTeknisiForm')">Batal</button>
+      <button class="btn btn-blue" onclick="saveTeknisi()">Simpan Data</button>
+    </div>
+  </div>
+</div>
+
+    <!-- LAPORAN -->
+    <div class="page" id="page-laporan">
+      <div class="filters">
+        <label for="laporanDari">Dari</label>
+        <input type="date" class="input" id="laporanDari">
+        <label for="laporanSampai">Sampai</label>
+        <input type="date" class="input" id="laporanSampai">
+        <button class="btn btn-blue" id="laporanMuatBtn" onclick="loadReport()">Tampilkan Laporan</button>
+      </div>
+      <div class="report-error" id="laporanError" role="status" aria-live="polite"></div>
+      <div class="report-stat-grid">
+        <div class="report-stat"><div class="label">Total SPK</div><div class="value" id="laporanTotalSpk">0</div></div>
+        <div class="report-stat"><div class="label">Selesai</div><div class="value" id="laporanSelesai">0</div></div>
+        <div class="report-stat"><div class="label">Sedang Berjalan</div><div class="value" id="laporanBerjalan">0</div></div>
+        <div class="report-stat"><div class="label">Dibatalkan</div><div class="value" id="laporanBatal">0</div></div>
+      </div>
+      <div class="rep-grid">
+        <div class="card">
+          <div class="card-head"><div><h3>Tren SPK Harian</h3><p id="laporanPeriode">Pilih periode untuk melihat laporan.</p></div></div>
+          <svg class="linechart" viewBox="0 0 320 130" preserveAspectRatio="none">
+            <polyline id="laporanLine" points="10,110 310,110" fill="none" stroke="var(--blue)" stroke-width="3"/>
+            <circle id="laporanDot" cx="310" cy="110" r="5" fill="var(--red)"/>
+          </svg>
+          <div class="report-axis"><span id="laporanAwalLabel">-</span><span id="laporanTengahLabel">-</span><span id="laporanAkhirLabel">-</span></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Kategori Pelanggan</h3><p>Komposisi SPK pada periode terpilih</p></div></div>
+          <div class="donut-wrap">
+            <div class="donut" id="laporanDonut"><div class="donut-inner"><div class="pct" id="laporanB2BPercent">0%</div><div class="lbl">B2B</div></div></div>
+          </div>
+          <div class="report-legend"><div>B2B: <b id="laporanB2BCount">0 SPK</b></div><div>Normal: <b id="laporanNormalCount">0 SPK</b></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEUANGAN -->
+    <div class="page" id="page-keuangan">
+      <div class="finance-toolbar">
+        <label for="keuDari">Periode</label>
+        <input type="date" class="input" id="keuDari" aria-label="Tanggal awal">
+        <span aria-hidden="true">—</span>
+        <input type="date" class="input" id="keuSampai" aria-label="Tanggal akhir">
+        <button class="btn btn-blue" id="keuRefreshBtn" onclick="loadKeuanganData()">Terapkan</button>
+        <span class="spacer"></span>
+        <span class="finance-period" id="keuPeriode">Pilih periode untuk memuat transaksi.</span>
+        <button class="btn btn-outline" onclick="openKeuExpenseModal()">+ Catat Pengeluaran</button>
+      </div>
+      <div id="keuError" class="report-error" role="status" aria-live="polite"></div>
+      <div class="finance-summary">
+        <div class="finance-metric income"><div class="label">Pemasukan</div><div class="value" id="keuPendapatan">Rp 0</div><div class="hint">Total transaksi masuk pada periode ini</div></div>
+        <div class="finance-metric expense"><div class="label">Pengeluaran</div><div class="value" id="keuPengeluaran">Rp 0</div><div class="hint">Total transaksi keluar pada periode ini</div></div>
+        <div class="finance-metric net" id="keuSaldoCard"><div class="label">Selisih Bersih Periode</div><div class="value" id="keuSaldo">Rp 0</div><div class="hint">Pemasukan dikurangi pengeluaran</div></div>
+      </div>
+      <div class="finance-insights">
+        <section class="finance-panel" aria-labelledby="financeTrendTitle">
+          <div class="finance-panel-head">
+            <div><h3 id="financeTrendTitle">Pergerakan Harian</h3><p id="financeTrendDescription">Ringkasan pemasukan dan pengeluaran per tanggal.</p></div>
+            <div class="finance-legend" aria-label="Legenda grafik"><span><i></i>Masuk</span><span class="out"><i></i>Keluar</span></div>
+          </div>
+          <div class="finance-days" id="financeDailyChart"><div class="finance-empty">Pilih periode untuk melihat tren.</div></div>
+        </section>
+        <section class="finance-panel" aria-labelledby="financeCategoryTitle">
+          <div class="finance-panel-head"><div><h3 id="financeCategoryTitle">Komposisi Kategori</h3><p>Perbandingan nilai per kategori transaksi.</p></div></div>
+          <div id="financeCategoryChart"><div class="finance-empty">Pilih periode untuk melihat kategori.</div></div>
+        </section>
+      </div>
+      <section class="finance-panel">
+        <div class="finance-panel-head">
+          <div><h3>Rincian Transaksi</h3><p id="financeTransactionNote">Menampilkan transaksi terbaru pada periode terpilih.</p></div>
+          <input class="input finance-search" id="financeSearch" type="search" placeholder="Cari deskripsi atau kategori..." aria-label="Cari transaksi" oninput="filterFinanceTransactions()">
+        </div>
+        <div class="finance-table-wrap">
+          <table>
+            <thead><tr><th>Tanggal</th><th>Arus</th><th>Kategori</th><th>Deskripsi</th><th style="text-align:right;">Nominal</th></tr></thead>
+            <tbody id="keuTransaksiList"><tr><td colspan="5">Pilih periode untuk memuat transaksi.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="finance-subsections">
+        <section class="card">
+          <div class="card-head"><div><h3>Rekening Pembayaran Online</h3><p>Informasi rekening yang ditampilkan kepada pelanggan.</p></div></div>
+          <div class="finance-account-fields">
+            <div class="field"><label for="paymentBank">Nama Bank</label><input id="paymentBank" maxlength="100" placeholder="Contoh: BCA"></div>
+            <div class="field"><label for="paymentAccountNumber">Nomor Rekening</label><input id="paymentAccountNumber" maxlength="50" placeholder="Nomor rekening tujuan"></div>
+            <div class="field"><label for="paymentAccountName">Nama Pemilik Rekening</label><input id="paymentAccountName" maxlength="150" placeholder="Nama sesuai rekening"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-blue" id="savePaymentAccountBtn" type="button" onclick="savePaymentAccount()">Simpan Rekening</button>
+            <span id="paymentAccountMessage" class="report-error" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+        <section class="card" style="padding:0;overflow:hidden;">
+          <div class="card-head" style="padding:18px 20px 0;"><div><h3>Konfirmasi Pembayaran</h3><p>Periksa bukti transfer pelanggan.</p></div><button class="btn btn-outline" type="button" onclick="loadPaymentAdminData()">Refresh</button></div>
+          <div id="paymentAdminError" class="report-error" role="status" aria-live="polite"></div>
+          <div class="finance-table-wrap">
+            <table>
+              <thead><tr><th>No. SPK</th><th>Pelanggan</th><th>Jumlah / Status</th><th>Bukti &amp; Aksi</th></tr></thead>
+              <tbody id="adminPaymentRows"><tr><td colspan="4">Memuat pembayaran...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- PENGATURAN -->
+    <div class="page" id="page-pengaturan">
+      <div class="settings-layout">
+        <div class="settings-nav">
+          <button class="active" id="tabHarga" onclick="showSettingsTab('harga')">Harga &amp; Layanan</button>
+          <button id="tabProfil" onclick="showSettingsTab('profil')">Profil Bisnis</button>
+        </div>
+        <div class="settings-body">
+          <div id="settings-harga">
+            <h3>Pengaturan Harga Dasar</h3>
+            <div class="field"><label>Harga Cuci Mesin (Reguler)</label><input id="settingHargaReguler" type="number" min="0" step="1000" placeholder="250000"></div>
+            <div class="field"><label>Persentase Diskon B2B (Showroom)</label><input id="settingDiskonB2B" type="number" min="0" max="100" step="1" placeholder="15"><div class="hint">Sistem akan otomatis memotong harga reguler untuk klien berstatus B2B.</div></div>
+            <button id="saveHargaBtn" class="btn btn-blue">Simpan Data</button>
+          </div>
+          <div id="settings-profil" style="display:none;">
+            <h3>Informasi Profil Bisnis</h3>
+            <p class="hint" style="margin-bottom:18px;">Pengubahan logo belum tersedia dari dashboard.</p>
+            <div class="field"><label>Nama Bisnis</label><input id="settingNamaBisnis" type="text" placeholder="CuciMesin Carwash"></div>
+            <div class="field"><label>Slogan (Tagline)</label><input id="settingTagline" type="text" placeholder="#PastiBersih,PastiTerjangkau!"></div>
+            <div class="two-field">
+              <div class="field"><label>Kontak Utama (WhatsApp)</label><input id="settingKontak" type="text" placeholder="0812-3456-7890"></div>
+              <div class="field"><label>Alamat Operasional</label><input id="settingAlamat" type="text" placeholder="Jl. Letda Sucipto, Tuban"></div>
+            </div>
+            <button id="saveProfilBtn" class="btn btn-blue">Simpan Profil</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: SPK Detail -->
+<div class="modal-overlay" id="modalKeuExpense">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Catat Pengeluaran</h3>
+      <button class="modal-close" type="button" onclick="closeModal('modalKeuExpense')">✕</button>
+    </div>
+    <form id="keuExpenseForm" onsubmit="simpanPengeluaran(event)">
+      <div class="modal-body">
+        <div class="field">
+          <label for="keuKategori">Kategori</label>
+          <input id="keuKategori" type="text" maxlength="100" placeholder="Contoh: Operasional" required>
+        </div>
+        <div class="field">
+          <label for="keuNominal">Nominal (Rp)</label>
+          <input id="keuNominal" type="number" min="1" step="1" placeholder="150000" required>
+        </div>
+        <div class="field">
+          <label for="keuTanggal">Tanggal</label>
+          <input id="keuTanggal" type="date" required>
+        </div>
+        <div class="field">
+          <label for="keuDeskripsi">Deskripsi</label>
+          <textarea id="keuDeskripsi" rows="3" maxlength="500" placeholder="Contoh: Pembelian cairan pembersih" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" type="button" onclick="closeModal('modalKeuExpense')">Batal</button>
+        <button class="btn btn-blue" id="keuSaveExpenseBtn" type="submit">Simpan Pengeluaran</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: SPK Detail -->
+<div class="modal-overlay" id="modalSpkDetail">
+  <div class="modal">
+    <div class="modal-header">
+      <div><h3 id="detailSpkTitle">SPK</h3><div class="ref" id="detailSpkMeta">-</div></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="tag orange" id="detailSpkStatus">-</span>
+        <button class="modal-close" onclick="closeModal('modalSpkDetail')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="detailSpkBody">
+      <div class="spk-info-block">
+        <div class="k">Info Pelanggan</div>
+        <div class="v">Memuat data...</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn btn-outline" style="border-color:var(--green);color:var(--green-text);" id="downloadSpkBtn" type="button">Unduh SPK</button>
+      <button class="btn btn-green" id="shareSpkBtn" type="button" disabled>Kirim SPK ke WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Buat SPK Baru -->
+<div class="modal-overlay" id="modalSpkNew">
+  <div class="modal">
+    <div class="modal-header">
+      <div><h3>Buat SPK Baru</h3><div class="ref">No. Referensi Otomatis: SPK-202409-083</div></div>
+      <button class="modal-close" onclick="closeModal('modalSpkNew')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h4>1. Informasi Pelanggan</h4>
+        <div class="two-field" style="max-width:none;">
+          <div class="field" style="max-width:none;"><label>Cari Data Pelanggan</label><input type="text" placeholder="Ketik nama atau plat nomor..."></div>
+          <div class="field" style="max-width:none;"><label>Nama Pelanggan (Baru/Edit)</label><input id="newSpkNama" type="text" value="Hendra Wijaya"></div>
+        </div>
+        <div class="two-field" style="max-width:none;">
+          <div class="field" style="max-width:none;"><label>Nomor WhatsApp</label><input id="newSpkTelepon" type="text" value="0812-4455-6677"></div>
+          <div class="field" style="max-width:none;"><label>Kategori Member</label>
+            <select style="width:100%;padding:11px 13px;"><option>Normal</option><option>Member B2B</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h4>2. Detail Kendaraan</h4>
+        <div class="two-field" style="max-width:none;">
+          <div class="field" style="max-width:none;"><label>Plat Nomor</label><input id="newSpkPlat" type="text" value="D 1404 VAA"></div>
+          <div class="field" style="max-width:none;"><label>Merk / Tipe Kendaraan</label><input id="newSpkMerk" type="text" value="Honda Brio Satya (Merah)"></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h4>3. Layanan &amp; Penugasan</h4>
+        <div class="two-field" style="max-width:none;">
+          <div class="field" style="max-width:none;"><label>Pilih Paket Layanan</label>
+            <select id="newSpkLayanan" style="width:100%;padding:11px 13px;"><option value="">Memuat layanan...</option></select>
+          </div>
+          <div class="field" style="max-width:none;"><label>Tugaskan Teknisi</label>
+            <select id="newSpkTeknisi" style="width:100%;padding:11px 13px;"><option value="">Tanpa penugasan</option></select>
+          </div>
+        </div>
+        <div class="total-box"><span class="l">Total Tagihan (Belum Lunas)</span><span class="v">Rp 95.000</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalSpkNew')">Batal</button>
+      <button id="createSpkBtn" class="btn btn-green">Simpan &amp; Buat SPK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ADMIN_TOKEN_KEY = 'cucimesin_token';
+const ADMIN_USER_KEY = 'cucimesin_user';
+let settingsCache = {};
+let bookingPage = 1;
+let pelangganRows = [];
+let teknisiRows = [];
+let financeTransactions = [];
+
+function getAdminToken(){
+  return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+}
+
+function authHeaders(extra = {}){
+  const token = getAdminToken();
+  return token
+    ? { ...extra, Authorization: `Bearer ${token}` }
+    : extra;
+}
+
+function escapeHtml(value){
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatCurrency(value){
+  const num = Number(value || 0);
+  return `Rp ${num.toLocaleString('id-ID')}`;
+}
+
+function statusTag(status){
+  const map = {
+    Menunggu: 'tag yellow',
+    Dikerjakan: 'tag orange',
+    Selesai: 'tag green',
+    Batal: 'tag'
+  };
+  return map[status] || 'tag';
+}
+
+function showPage(id, el, title, sub){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.sb-nav button').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('pageTitle').innerHTML = title;
+  document.getElementById('pageSub').innerHTML = sub;
+}
+
+function searchDashboardSpk(){
+  const orderButton = document.querySelector('.sb-nav button[onclick*="showPage(\'order\'"]');
+  if (!orderButton) return;
+  showPage('order', orderButton, 'Manajemen Order & SPK', 'Hasil pencarian SPK');
+  loadOrderData(document.getElementById('dashboardSearch')?.value || '');
+}
+
+function showSettingsTab(tab){
+  document.getElementById('settings-harga').style.display = tab==='harga' ? 'block':'none';
+  document.getElementById('settings-profil').style.display = tab==='profil' ? 'block':'none';
+  document.getElementById('tabHarga').classList.toggle('active', tab==='harga');
+  document.getElementById('tabProfil').classList.toggle('active', tab==='profil');
+}
+
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+function localDateValue(date){
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function renderReport(data){
+  const summary = data || {};
+  const categories = summary.kategori || {};
+  const daily = Array.isArray(summary.harian) ? summary.harian : [];
+  const total = Number(summary.total_spk || 0);
+  const b2b = Number(categories.b2b || 0);
+  const normal = Number(categories.normal || 0);
+  const categoryTotal = b2b + normal;
+  const b2bPercent = categoryTotal ? Math.round((b2b / categoryTotal) * 100) : 0;
+
+  document.getElementById('laporanTotalSpk').textContent = total;
+  document.getElementById('laporanSelesai').textContent = Number(summary.selesai || 0);
+  document.getElementById('laporanBerjalan').textContent = Number(summary.dikerjakan || 0) + Number(summary.menunggu || 0);
+  document.getElementById('laporanBatal').textContent = Number(summary.batal || 0);
+  document.getElementById('laporanB2BPercent').textContent = `${b2bPercent}%`;
+  document.getElementById('laporanB2BCount').textContent = `${b2b} SPK`;
+  document.getElementById('laporanNormalCount').textContent = `${normal} SPK`;
+  document.getElementById('laporanDonut').style.background = `conic-gradient(var(--blue) 0% ${b2bPercent}%, var(--green-bg) ${b2bPercent}% 100%)`;
+
+  const periodLabel = document.getElementById('laporanPeriode');
+  if (periodLabel && summary.periode) {
+    const formatDate = (value) => new Date(`${value}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    periodLabel.textContent = `${formatDate(summary.periode.dari)} - ${formatDate(summary.periode.sampai)}`;
+  }
+
+  const values = daily.map((item) => Number(item.jumlah || 0));
+  const maxValue = Math.max(...values, 1);
+  const points = values.length
+    ? values.map((value, index) => `${values.length === 1 ? 160 : 10 + (index * 300) / (values.length - 1)},${110 - (value / maxValue) * 90}`)
+    : ['10,110', '310,110'];
+  document.getElementById('laporanLine').setAttribute('points', points.join(' '));
+  const lastPoint = points[points.length - 1].split(',');
+  document.getElementById('laporanDot').setAttribute('cx', lastPoint[0]);
+  document.getElementById('laporanDot').setAttribute('cy', lastPoint[1]);
+
+  const labelIndexes = [0, Math.floor((daily.length - 1) / 2), daily.length - 1];
+  ['laporanAwalLabel', 'laporanTengahLabel', 'laporanAkhirLabel'].forEach((id, index) => {
+    const item = daily[labelIndexes[index]];
+    document.getElementById(id).textContent = item
+      ? new Date(`${item.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+      : '-';
+  });
+}
+
+async function loadReport(){
+  const fromInput = document.getElementById('laporanDari');
+  const toInput = document.getElementById('laporanSampai');
+  const button = document.getElementById('laporanMuatBtn');
+  const error = document.getElementById('laporanError');
+  const today = new Date();
+
+  if (!fromInput.value) fromInput.value = localDateValue(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!toInput.value) toInput.value = localDateValue(today);
+  fromInput.max = localDateValue(today);
+  toInput.max = localDateValue(today);
+
+  if (fromInput.value > toInput.value) {
+    error.textContent = 'Tanggal awal tidak boleh melewati tanggal akhir.';
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Memuat...';
+  error.textContent = '';
+  try {
+    const params = new URLSearchParams({ dari: fromInput.value, sampai: toInput.value });
+    const response = await fetch(`/api/laporan/ringkasan?${params}`, { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat laporan');
+    renderReport(data);
+  } catch (loadError) {
+    error.textContent = loadError.message || 'Gagal memuat laporan.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Tampilkan Laporan';
+  }
+}
+
+function setAdminLoginError(message){
+  const el = document.getElementById('adminLoginError');
+  if (el) el.textContent = message || '';
+}
+
+function showAdminLogin(){
+  document.getElementById('adminLoginOverlay')?.classList.remove('hidden');
+  document.getElementById('adminApp')?.classList.remove('hidden');
+}
+
+function hideAdminLogin(){
+  document.getElementById('adminLoginOverlay')?.classList.add('hidden');
+}
+
+function renderTrendChart(tren){
+  const bars = Array.from(document.querySelectorAll('#trendBars .bar'));
+  const labels = Array.from(document.querySelectorAll('#trendLabels span'));
+
+  if (!bars.length || !labels.length) return;
+
+  const series = tren?.harian?.map(item => Number(item.jumlah || 0)) || [0,0,0,0,0,0,0];
+  const max = Math.max(...series, 1);
+
+  bars.forEach((bar, index) => {
+    const value = series[index] || 0;
+    bar.style.height = `${Math.max(20, (value / max) * 100)}%`;
+    bar.classList.toggle('light', value < max * 0.6);
+  });
+
+  labels.forEach((label, index) => {
+    let text = '—';
+    if (tren?.harian?.[index]?.tanggal) {
+      text = new Date(`${tren.harian[index].tanggal}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short' });
+    } else {
+      const fallback = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+      text = fallback[index] || '—';
+    }
+    label.textContent = text;
+  });
+
+  const average = document.getElementById('trendAverage');
+  const busiest = document.getElementById('trendBusiest');
+  if (average) average.textContent = `${Number(tren?.rata_rata_harian || 0)} SPK/Hari`;
+  if (busiest) {
+    const peak = tren?.hari_tersibuk;
+    const day = peak?.tanggal
+      ? new Date(`${peak.tanggal}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long' })
+      : '-';
+    busiest.textContent = peak ? `${day} (${Number(peak.jumlah || 0)})` : '-';
+  }
+}
+
+function renderDashboardStats(stats){
+  const totalOrder = document.getElementById('stat-total-order');
+  const totalOrderDelta = document.getElementById('stat-total-order-delta');
+  const dikerjakan = document.getElementById('stat-dikerjakan');
+  const teknisiStandby = document.getElementById('stat-teknisi-standby');
+  const selesaiHariIni = document.getElementById('stat-selesai-hari-ini');
+  const selesaiNote = document.getElementById('stat-selesai-note');
+  const revenue = document.getElementById('stat-revenue');
+  const revenueNote = document.getElementById('stat-revenue-note');
+
+  if (totalOrder) totalOrder.textContent = `${stats.total_order || 0} SPK`;
+  if (totalOrderDelta) totalOrderDelta.textContent = `${stats.total_order_delta_persen >= 0 ? '+' : ''}${stats.total_order_delta_persen || 0}% dari kemarin`;
+  if (dikerjakan) dikerjakan.textContent = `${stats.dalam_pengerjaan || 0} Unit`;
+  if (teknisiStandby) teknisiStandby.textContent = `${stats.teknisi_standby || 0} teknisi standby`;
+  if (selesaiHariIni) selesaiHariIni.textContent = `${stats.selesai_hari_ini || 0} Unit`;
+  if (selesaiNote) selesaiNote.textContent = 'Selesai hari ini';
+  if (revenue) revenue.textContent = formatCurrency(stats.revenue_hari_ini || 0);
+  if (revenueNote) revenueNote.textContent = 'Pendapatan hari ini';
+}
+
+function renderAntrian(rows){
+  const tbody = document.getElementById('antrianTableBody');
+  if (!tbody) return;
+
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6">Belum ada SPK hari ini.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td class="mono">${escapeHtml(row.no_spk || '-')}</td>
+      <td>${escapeHtml(row.pelanggan || '-')}</td>
+      <td>${escapeHtml(row.plat_nomor || '-')}</td>
+      <td>${escapeHtml(row.layanan || '-')}</td>
+      <td>${escapeHtml(row.teknisi || '-')} <span class="${statusTag(row.status)}">${escapeHtml(row.status || 'Menunggu')}</span></td>
+      <td>${row.waktu_mulai ? row.waktu_mulai.slice(11,16) + ' WIB' : '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderFinanceTransactions(rows){
+  const container = document.getElementById('keuTransaksiList');
+  if (!container) return;
+
+  if (!rows.length) {
+    container.innerHTML = '<tr><td colspan="5" class="finance-empty">Tidak ada transaksi yang cocok pada periode ini.</td></tr>';
+    return;
+  }
+
+  container.innerHTML = rows.map((row) => {
+    const isIncoming = row.tipe === 'masuk';
+    return `
+      <tr>
+        <td>${escapeHtml(row.tanggal || '-')}</td>
+        <td><span class="finance-type ${isIncoming ? 'in' : 'out'}">${isIncoming ? 'Masuk' : 'Keluar'}</span></td>
+        <td>${escapeHtml(row.kategori || 'Transaksi')}</td>
+        <td>${escapeHtml(row.deskripsi || '-')}</td>
+        <td style="text-align:right;"><span class="finance-amount ${isIncoming ? 'in' : 'out'}">${isIncoming ? '+' : '−'} ${formatCurrency(row.nominal)}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterFinanceTransactions(){
+  const query = document.getElementById('financeSearch').value.trim().toLocaleLowerCase('id-ID');
+  const filtered = financeTransactions.filter(row =>
+    [row.deskripsi, row.kategori, row.tanggal, row.tipe]
+      .some(value => String(value || '').toLocaleLowerCase('id-ID').includes(query))
+  );
+  renderFinanceTransactions(filtered);
+}
+
+function renderFinanceAnalysis(analysis){
+  const dailyContainer = document.getElementById('financeDailyChart');
+  const categoryContainer = document.getElementById('financeCategoryChart');
+  const dailyRows = Array.isArray(analysis.harian) ? analysis.harian : [];
+  const categoryRows = Array.isArray(analysis.kategori) ? analysis.kategori : [];
+  const periodStart = new Date(`${analysis.periode.dari}T00:00:00Z`);
+  const periodEnd = new Date(`${analysis.periode.sampai}T00:00:00Z`);
+  const displayEnd = Math.min(periodEnd.getTime(), periodStart.getTime() + 13 * 86400000);
+  const displayStart = Math.max(periodStart.getTime(), displayEnd - 13 * 86400000);
+  const daily = new Map(dailyRows.map(row => [`${row.tanggal}|${row.tipe}`, Number(row.total) || 0]));
+  const dates = [];
+  for (let time = displayStart; time <= displayEnd; time += 86400000) {
+    dates.push(new Date(time).toISOString().slice(0, 10));
+  }
+  const maxDaily = Math.max(1, ...dates.flatMap(date => [
+    daily.get(`${date}|masuk`) || 0,
+    daily.get(`${date}|keluar`) || 0
+  ]));
+
+  document.getElementById('financeTrendDescription').textContent =
+    `Nilai harian · ${dates.length} hari terakhir dalam periode yang dipilih`;
+  dailyContainer.innerHTML = dailyRows.length ? dates.map(date => {
+    const incoming = daily.get(`${date}|masuk`) || 0;
+    const outgoing = daily.get(`${date}|keluar`) || 0;
+    const dateLabel = new Date(`${date}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const inWidth = incoming ? Math.max(2, incoming / maxDaily * 100) : 0;
+    const outWidth = outgoing ? Math.max(2, outgoing / maxDaily * 100) : 0;
+    return `<div class="finance-day" title="${escapeHtml(date)} · Masuk ${formatCurrency(incoming)} · Keluar ${formatCurrency(outgoing)}">
+      <span class="finance-day-label">${escapeHtml(dateLabel)}</span>
+      <span class="finance-day-bars" aria-hidden="true">
+        <span class="finance-day-track"><span class="finance-day-fill" style="display:block;width:${inWidth}%"></span></span>
+        <span class="finance-day-track"><span class="finance-day-fill out" style="display:block;width:${outWidth}%"></span></span>
+      </span>
+      <span class="finance-day-total">+${formatCurrency(incoming)}<br>−${formatCurrency(outgoing)}</span>
+    </div>`;
+  }).join('') : '<div class="finance-empty">Belum ada transaksi pada periode ini.</div>';
+
+  const renderCategoryGroup = (type, title, className) => {
+    const allRows = categoryRows.filter(row => row.tipe === type);
+    const rows = allRows.slice(0, 5);
+    const total = allRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    if (!rows.length) {
+      return `<div class="finance-category-group"><div class="finance-category-title ${className}"><span>${title}</span><span>${formatCurrency(0)}</span></div><div class="muted">Belum ada transaksi.</div></div>`;
+    }
+    const maximum = Math.max(...rows.map(row => Number(row.total) || 0), 1);
+    return `<div class="finance-category-group">
+      <div class="finance-category-title ${className}"><span>${title} · ${formatCurrency(total)}</span></div>
+      ${allRows.length > 5 ? '<div class="muted">5 kategori terbesar dari seluruh kategori.</div>' : ''}
+      ${rows.map(row => `<div class="finance-category-row" title="${escapeHtml(row.kategori)} · ${formatCurrency(row.total)} · ${Number(row.jumlah) || 0} transaksi">
+        <span class="finance-category-name">${escapeHtml(row.kategori)}</span>
+        <span class="finance-category-track" aria-hidden="true"><span class="finance-category-fill ${className === 'expense' ? 'out' : ''}" style="display:block;width:${Math.max(2, Number(row.total) / maximum * 100)}%"></span></span>
+        <span class="finance-category-value">${formatCurrency(row.total)}</span>
+      </div>`).join('')}
+    </div>`;
+  };
+  categoryContainer.innerHTML = categoryRows.length
+    ? renderCategoryGroup('masuk', 'Pemasukan', 'income') + renderCategoryGroup('keluar', 'Pengeluaran', 'expense')
+    : '<div class="finance-empty">Belum ada transaksi pada periode ini.</div>';
+}
+
+async function loadPaymentAccount(){
+  const message = document.getElementById('paymentAccountMessage');
+  try {
+    const response = await fetch('/api/pembayaran/rekening', { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat rekening pembayaran');
+    document.getElementById('paymentBank').value = data.bank || '';
+    document.getElementById('paymentAccountNumber').value = data.nomor || '';
+    document.getElementById('paymentAccountName').value = data.pemilik || '';
+    message.textContent = '';
+  } catch (error) {
+    message.textContent = error.message || 'Gagal memuat rekening pembayaran.';
+  }
+}
+
+async function savePaymentAccount(){
+  const button = document.getElementById('savePaymentAccountBtn');
+  const message = document.getElementById('paymentAccountMessage');
+  const payload = {
+    bank: document.getElementById('paymentBank').value.trim(),
+    nomor: document.getElementById('paymentAccountNumber').value.trim(),
+    pemilik: document.getElementById('paymentAccountName').value.trim()
+  };
+  button.disabled = true;
+  message.textContent = '';
+  try {
+    const response = await fetch('/api/pembayaran/rekening', {
+      method: 'PUT',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan rekening pembayaran');
+    message.style.color = 'var(--green-text)';
+    message.textContent = 'Informasi rekening berhasil disimpan.';
+  } catch (error) {
+    message.style.color = 'var(--red)';
+    message.textContent = error.message || 'Gagal menyimpan rekening pembayaran.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function loadPaymentAdminData(){
+  const tbody = document.getElementById('adminPaymentRows');
+  const error = document.getElementById('paymentAdminError');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4">Memuat pembayaran...</td></tr>';
+  error.textContent = '';
+  try {
+    const response = await fetch('/api/pembayaran/admin', { headers: authHeaders() });
+    const rows = await response.json();
+    if (!response.ok) throw new Error(rows.error || 'Gagal memuat pembayaran pelanggan');
+    if (!Array.isArray(rows) || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4">Belum ada pembayaran pelanggan.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(payment => {
+      const pending = payment.status === 'Menunggu Konfirmasi';
+      const proofAction = payment.has_bukti
+        ? `<button class="btn btn-outline" type="button" onclick="viewPaymentProof(${Number(payment.id)})">Lihat Bukti</button>`
+        : '<span class="muted">Tidak ada bukti</span>';
+      const reviewActions = pending ? `
+        <button class="btn btn-green" type="button" onclick="reviewCustomerPayment(${Number(payment.id)}, 'Dikonfirmasi')">Konfirmasi</button>
+        <button class="btn btn-outline" type="button" onclick="reviewCustomerPayment(${Number(payment.id)}, 'Ditolak')">Tolak</button>` : '';
+      return `<tr>
+        <td>${escapeHtml(payment.no_spk || '-')}<div class="muted">${escapeHtml(payment.metode || '-')}</div></td>
+        <td>${escapeHtml(payment.pelanggan || '-')}<div class="muted">${escapeHtml(`${payment.merk_tipe || 'Kendaraan'} · ${payment.plat_nomor || '-'}`)}</div></td>
+        <td><b>${formatCurrency(payment.nominal)}</b><div class="muted">${escapeHtml(payment.status || '-')} · ${escapeHtml(payment.submitted_at || '')}</div>
+          ${payment.catatan_admin ? `<div class="muted">${escapeHtml(payment.catatan_admin)}</div>` : ''}</td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;min-width:135px;">${proofAction}${reviewActions}</div></td>
+      </tr>`;
+    }).join('');
+  } catch (loadError) {
+    tbody.innerHTML = '<tr><td colspan="4">Pembayaran gagal dimuat.</td></tr>';
+    error.textContent = loadError.message || 'Gagal memuat pembayaran pelanggan.';
+  }
+}
+
+async function viewPaymentProof(paymentId){
+  const preview = window.open('about:blank', '_blank');
+  try {
+    const response = await fetch(`/api/pembayaran/${paymentId}/bukti`, { headers: authHeaders() });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Gagal membuka bukti pembayaran');
+    }
+    const proofUrl = URL.createObjectURL(await response.blob());
+    if (preview) {
+      preview.location.href = proofUrl;
+      preview.addEventListener('beforeunload', () => URL.revokeObjectURL(proofUrl), { once: true });
+    } else {
+      URL.revokeObjectURL(proofUrl);
+      throw new Error('Izinkan pop-up untuk melihat bukti pembayaran.');
+    }
+  } catch (error) {
+    if (preview) preview.close();
+    document.getElementById('paymentAdminError').textContent = error.message || 'Gagal membuka bukti pembayaran.';
+  }
+}
+
+async function reviewCustomerPayment(paymentId, status){
+  let catatan_admin = '';
+  if (status === 'Ditolak') {
+    catatan_admin = window.prompt('Masukkan alasan penolakan bukti transfer:') || '';
+    if (!catatan_admin.trim()) return;
+  } else if (!window.confirm('Konfirmasi pembayaran ini? Pemasukan akan dicatat di arus kas.')) {
+    return;
+  }
+
+  const error = document.getElementById('paymentAdminError');
+  error.textContent = '';
+  try {
+    const response = await fetch(`/api/pembayaran/${paymentId}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status, catatan_admin })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui status pembayaran');
+    await Promise.all([loadPaymentAdminData(), loadKeuanganData()]);
+  } catch (actionError) {
+    error.textContent = actionError.message || 'Gagal memperbarui status pembayaran.';
+  }
+}
+
+async function loadKeuanganData(){
+  const fromInput = document.getElementById('keuDari');
+  const toInput = document.getElementById('keuSampai');
+  const refreshButton = document.getElementById('keuRefreshBtn');
+  const error = document.getElementById('keuError');
+  const today = new Date();
+
+  if (!fromInput.value) fromInput.value = localDateValue(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!toInput.value) toInput.value = localDateValue(today);
+  fromInput.max = localDateValue(today);
+  toInput.max = localDateValue(today);
+
+  if (fromInput.value > toInput.value) {
+    error.textContent = 'Tanggal awal tidak boleh melewati tanggal akhir.';
+    return;
+  }
+
+  refreshButton.disabled = true;
+  refreshButton.textContent = 'Memuat...';
+  error.textContent = '';
+  try {
+    const params = new URLSearchParams({ dari: fromInput.value, sampai: toInput.value });
+    const [summaryResponse, analysisResponse, transactionsResponse] = await Promise.all([
+      fetch(`/api/keuangan/ringkasan?${params}`, { headers: authHeaders() }),
+      fetch(`/api/keuangan/analisis?${params}`, { headers: authHeaders() }),
+      fetch(`/api/keuangan/transaksi?${params}`, { headers: authHeaders() })
+    ]);
+    const [summary, analysis, transactions] = await Promise.all([
+      summaryResponse.json(),
+      analysisResponse.json(),
+      transactionsResponse.json()
+    ]);
+    if (!summaryResponse.ok) throw new Error(summary.error || 'Gagal memuat ringkasan keuangan');
+    if (!analysisResponse.ok) throw new Error(analysis.error || 'Gagal memuat analisis keuangan');
+    if (!transactionsResponse.ok) throw new Error(transactions.error || 'Gagal memuat transaksi');
+
+    document.getElementById('keuPendapatan').textContent = formatCurrency(summary.total_masuk);
+    document.getElementById('keuPengeluaran').textContent = formatCurrency(summary.total_keluar);
+    document.getElementById('keuSaldo').textContent = formatCurrency(summary.saldo);
+    document.getElementById('keuSaldoCard').classList.toggle('negative', Number(summary.saldo) < 0);
+    document.getElementById('keuPeriode').textContent = `${summary.periode.dari} - ${summary.periode.sampai}`;
+    renderFinanceAnalysis(analysis);
+    financeTransactions = Array.isArray(transactions) ? transactions : [];
+    document.getElementById('financeSearch').value = '';
+    document.getElementById('financeTransactionNote').textContent = financeTransactions.length === 100
+      ? 'Menampilkan 100 transaksi terbaru pada periode terpilih; ringkasan dan grafik menghitung seluruh transaksi.'
+      : `${financeTransactions.length} transaksi pada periode terpilih.`;
+    renderFinanceTransactions(financeTransactions);
+  } catch (loadError) {
+    error.textContent = loadError.message || 'Gagal memuat data keuangan.';
+  } finally {
+    refreshButton.disabled = false;
+    refreshButton.textContent = 'Refresh';
+  }
+}
+
+async function simpanPengeluaran(event){
+  event.preventDefault();
+  const form = document.getElementById('keuExpenseForm');
+  const button = document.getElementById('keuSaveExpenseBtn');
+  const today = localDateValue(new Date());
+  const payload = {
+    kategori: document.getElementById('keuKategori').value.trim(),
+    nominal: Number(document.getElementById('keuNominal').value),
+    tanggal: document.getElementById('keuTanggal').value || today,
+    deskripsi: document.getElementById('keuDeskripsi').value.trim()
+  };
+
+  button.disabled = true;
+  button.textContent = 'Menyimpan...';
+  try {
+    const response = await fetch('/api/keuangan/transaksi', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan pengeluaran');
+
+    form.reset();
+    document.getElementById('keuTanggal').value = today;
+    closeModal('modalKeuExpense');
+    await loadKeuanganData();
+  } catch (saveError) {
+    document.getElementById('keuError').textContent = saveError.message || 'Gagal menyimpan pengeluaran.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Simpan Pengeluaran';
+  }
+}
+
+function openKeuExpenseModal(){
+  const dateInput = document.getElementById('keuTanggal');
+  const today = localDateValue(new Date());
+  dateInput.value = today;
+  dateInput.max = today;
+  openModal('modalKeuExpense');
+}
+
+function renderOrderTable(rows){
+  const tbody = document.getElementById('orderTableBody');
+  if (!tbody) return;
+
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9">Belum ada data SPK.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td class="mono">${escapeHtml(row.no_spk || '-')}</td>
+      <td>${row.created_at ? row.created_at.slice(0,10) : '-'}</td>
+      <td><b>${escapeHtml(row.pelanggan || row.nama_pelanggan || '-')}</b></td>
+      <td>${escapeHtml(row.kategori || 'Normal')}</td>
+      <td>${escapeHtml(row.layanan_nama || row.layanan || '-')}</td>
+      <td>${formatCurrency(row.total || row.harga || 0)}</td>
+      <td>
+        <select class="input" aria-label="Tugaskan teknisi untuk ${escapeHtml(row.no_spk || 'SPK')}" onchange="changeTeknisiSpk(${row.id}, this.value)">
+          <option value="">Pilih teknisi...</option>
+          ${row.teknisi_id && !globalTeknisiList.some(item => Number(item.id) === Number(row.teknisi_id)) ? `<option value="${row.teknisi_id}" selected>${escapeHtml(row.teknisi_nama || 'Teknisi tidak aktif')}</option>` : ''}
+          ${globalTeknisiList.map(item => `<option value="${item.id}" ${Number(item.id) === Number(row.teknisi_id) ? 'selected' : ''}>${escapeHtml(item.nama)}</option>`).join('')}
+        </select>
+      </td>
+      
+      <!-- PERBAIKAN: Tombol Dropdown Status SPK yang Interaktif -->
+      <td>
+        <select class="input" style="padding:4px 8px; font-size:11px; font-weight:bold; cursor:pointer;" onchange="updateSpkStatus(${row.id}, this.value)">
+          <option value="Menunggu" ${row.status === 'Menunggu' ? 'selected' : ''}>Menunggu</option>
+          <option value="Dikerjakan" ${row.status === 'Dikerjakan' ? 'selected' : ''}>Dikerjakan</option>
+          <option value="Selesai" ${row.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+          <option value="Batal" ${row.status === 'Batal' ? 'selected' : ''}>Batal</option>
+        </select>
+      </td>
+      
+      <td><a onclick="openSpkDetail(${row.id})" style="color:var(--green-text);font-weight:700;cursor:pointer;">Detail</a></td>
+    </tr>
+  `).join('');
+}
+
+// Tambahkan juga fungsi ini di bawahnya untuk mengirim update ke server
+async function updateSpkStatus(id, newStatus) {
+  try {
+    const response = await fetch(`/api/spk/${id}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status: newStatus })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui status');
+    await loadDashboardData();
+    await loadOrderData();
+  } catch (error) {
+    alert(error.message || 'Pastikan backend endpoint tersedia untuk update status SPK');
+    await loadDashboardData();
+    await loadOrderData();
+  }
+}
+
+function renderPelangganTable(rows){
+  const tbody = document.getElementById('pelangganTableBody');
+  if (!tbody) return;
+
+  if (Array.isArray(rows)) pelangganRows = rows;
+  const query = (document.getElementById('pelangganSearch')?.value || '').trim().toLocaleLowerCase('id-ID');
+  const category = document.getElementById('pelangganKategoriFilter')?.value || '';
+  const filteredRows = pelangganRows.filter((row) => {
+    const searchable = `${row.nama || ''} ${row.telepon || ''} ${row.email || ''}`.toLocaleLowerCase('id-ID');
+    return (!query || searchable.includes(query)) && (!category || row.kategori === category);
+  });
+
+  if (!pelangganRows.length) {
+    tbody.innerHTML = '<tr><td colspan="4">Belum ada data pelanggan.</td></tr>';
+    return;
+  }
+
+  if (!filteredRows.length) {
+    tbody.innerHTML = '<tr><td colspan="4">Tidak ada pelanggan yang cocok.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filteredRows.map(row => {
+    const kategoriClass = row.kategori === 'B2B' ? 'tag' : 'tag yellow';
+    const kategoriLabel = row.kategori || 'Normal';
+    
+    // Ambil nilai total cuci dari database secara live
+    const totalCuci = row.total_cuci || 0; 
+
+    return `
+      <tr>
+        <td>
+          <b>${escapeHtml(row.nama || '-')}</b><br>
+          <small style="color:var(--muted);">${escapeHtml(row.email || '')}</small>
+        </td>
+        <td>${escapeHtml(row.telepon || '-')}</td>
+        <td><span class="${kategoriClass}" style="${row.kategori === 'B2B' ? 'background:#dfe6f7;color:var(--blue-dark);' : 'background:#eee;color:var(--muted);'}">${escapeHtml(kategoriLabel)}</span></td>
+        <td><b style="color:var(--green-text); font-size:14px;">${totalCuci}</b> Unit</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function savePelanggan(event){
+  event.preventDefault();
+  const form = document.getElementById('pelangganForm');
+  const button = document.getElementById('savePelangganBtn');
+  const payload = {
+    nama: document.getElementById('pelangganNamaBaru').value.trim(),
+    telepon: document.getElementById('pelangganTeleponBaru').value.trim(),
+    email: document.getElementById('pelangganEmailBaru').value.trim(),
+    alamat: document.getElementById('pelangganAlamatBaru').value.trim(),
+    kategori: document.getElementById('pelangganKategoriBaru').value
+  };
+
+  button.disabled = true;
+  button.textContent = 'Menyimpan...';
+  try {
+    const response = await fetch('/api/pelanggan', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menambahkan pelanggan');
+
+    form.reset();
+    closeModal('modalPelangganForm');
+    await loadPelangganData();
+  } catch (error) {
+    alert(error.message || 'Gagal menambahkan pelanggan.');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Simpan Pelanggan';
+  }
+}
+
+// --- RENDER KARTU TEKNISI ---
+function renderTeknisiCards(rows){
+  const container = document.getElementById('teknisiCardsContainer');
+  const aktifCount = document.getElementById('teknisiAktifCount');
+  const rataWaktu = document.getElementById('teknisiRataWaktu');
+
+  if (!container) return;
+  if (Array.isArray(rows)) teknisiRows = rows;
+  const query = (document.getElementById('teknisiSearch')?.value || '').trim().toLocaleLowerCase('id-ID');
+  const filteredRows = teknisiRows.filter((row) => `${row.nama || ''} ${row.email || ''} ${row.telepon || ''}`.toLocaleLowerCase('id-ID').includes(query));
+  const activeRows = teknisiRows.filter(row => Number(row.aktif) === 1);
+
+  if (aktifCount) aktifCount.textContent = `${activeRows.length} Orang`;
+  if (rataWaktu) rataWaktu.textContent = `30 Menit`;
+
+  if (!teknisiRows.length) {
+    container.innerHTML = '<div class="tek-card"><div class="tek-top"><div class="avatar"></div><div><div class="tek-name">Belum ada data teknisi.</div></div></div></div>';
+    return;
+  }
+
+  if (!filteredRows.length) {
+    container.innerHTML = '<div class="tek-card"><div class="tek-name">Tidak ada teknisi yang cocok.</div></div>';
+    return;
+  }
+
+  container.innerHTML = filteredRows.map(row => {
+    const initials = (row.nama || 'T').split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+    const statusClass = row.aktif ? 'tag yellow' : 'tag gray';
+    const statusStyle = row.aktif ? 'background:#fdf2d0;color:#8a6d1a;' : 'background:#eee;color:var(--muted);';
+
+    return `
+      <div class="tek-card">
+        <div class="tek-top">
+          <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:16px;">
+            ${initials}
+          </div>
+          <div style="flex:1; display:flex; justify-content:space-between; align-items:flex-start; margin-left:12px;">
+            <div>
+              <div class="tek-name">${escapeHtml(row.nama || '-')}</div>
+              <span class="${statusClass}" style="${statusStyle}">${row.aktif ? 'AKTIF' : 'NON-AKTIF'}</span>
+            </div>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editTeknisi('${row.id}', '${escapeHtml(row.nama || '')}', '${escapeHtml(row.email || '')}', '${escapeHtml(row.telepon || '')}', '${row.aktif}')">
+              ✏️ Edit
+            </button>
+          </div>
+        </div>
+        <div class="tek-body" style="margin-bottom:8px;">Email: <br><b>${escapeHtml(row.email || '-')}</b></div>
+        <div class="tek-body">WhatsApp: <br><b>${escapeHtml(row.telepon || '-')}</b></div>
+        
+        <button class="btn btn-outline" style="width:100%; margin-top:8px;" onclick="openModal('modalSopTeknisi')">
+          Lihat Detail SOP
+        </button>
+        <button class="btn btn-outline" style="width:100%; margin-top:8px; color:var(--red); border-color:var(--red);" onclick="hapusTeknisi(${Number(row.id)})">
+          Hapus Teknisi
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+// --- FUNGSI FORM MODAL TEKNISI ---
+function openTeknisiModal() {
+  document.getElementById('formTeknisiTitle').textContent = 'Tambah Teknisi Baru';
+  document.getElementById('formTeknisiId').value = '';
+  document.getElementById('formTeknisiNama').value = '';
+  document.getElementById('formTeknisiEmail').value = '';
+  document.getElementById('formTeknisiTelepon').value = '';
+  document.getElementById('formTeknisiPassword').value = '';
+  document.getElementById('formTeknisiStatus').value = '1';
+  openModal('modalTeknisiForm');
+}
+
+function editTeknisi(id, nama, email, telepon, aktif) {
+  document.getElementById('formTeknisiTitle').textContent = 'Edit Data Teknisi';
+  document.getElementById('formTeknisiId').value = id;
+  document.getElementById('formTeknisiNama').value = nama || '';
+  document.getElementById('formTeknisiEmail').value = email || '';
+  document.getElementById('formTeknisiTelepon').value = telepon || '';
+  document.getElementById('formTeknisiPassword').value = ''; // Kosong agar password lama tidak tertimpa kecuali diisi
+  document.getElementById('formTeknisiStatus').value = aktif || '0';
+  openModal('modalTeknisiForm');
+}
+
+async function saveTeknisi() {
+  const id = document.getElementById('formTeknisiId').value;
+  const payload = {
+    nama: document.getElementById('formTeknisiNama').value.trim(),
+    email: document.getElementById('formTeknisiEmail').value.trim(),
+    telepon: document.getElementById('formTeknisiTelepon').value.trim(),
+    password: document.getElementById('formTeknisiPassword').value,
+    aktif: Number(document.getElementById('formTeknisiStatus').value)
+  };
+
+  if (!payload.nama || !payload.telepon) return alert('Nama dan nomor WhatsApp wajib diisi.');
+  if (!id && !payload.password) return alert('Password wajib diisi untuk teknisi baru.');
+
+  try {
+    const url = id ? `/api/teknisi/${id}` : '/api/teknisi';
+    const method = id ? 'PUT' : 'POST';
+    
+    const response = await fetch(url, {
+      method: method,
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan data teknisi');
+    
+    closeModal('modalTeknisiForm');
+    alert('Data teknisi berhasil disimpan.');
+    loadTeknisiData(); // Refresh tampilan secara live
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function hapusTeknisi(id) {
+  if (!Number.isInteger(id) || id < 1) return;
+  if (!confirm('Hapus teknisi ini? Penugasan SPK lama akan dilepas, tetapi data SPK tetap tersimpan.')) return;
+
+  try {
+    const response = await fetch(`/api/teknisi/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menghapus teknisi');
+
+    await Promise.all([loadTeknisiData(), loadSpkOptions()]);
+    alert('Teknisi berhasil dihapus.');
+  } catch (error) {
+    alert(error.message || 'Gagal menghapus teknisi.');
+  }
+}
+
+function bookingStatusClass(status){
+  return { Baru: 'tag yellow', Diproses: 'tag orange', Dikonversi: 'tag green', Batal: 'tag' }[status] || 'tag';
+}
+
+function renderBookingTable(rows){
+  const tbody = document.getElementById('bookingTableBody');
+  if (!tbody) return;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6">Belum ada booking pelanggan.</td></tr>';
+    return;
+  }
+
+  // Kita menambahkan parameter 'index' di sini untuk menghitung baris
+  tbody.innerHTML = rows.map((row) => {
+    const nomorTampil = `BKG-${String(row.id).padStart(4, '0')}`;
+
+    return `
+    <tr>
+      <!-- Tampilkan nomor visual yang sudah kita buat -->
+      <td class="mono" style="font-weight: 800;">${nomorTampil}</td>
+      
+      <td><b>${escapeHtml(row.nama || '-')}</b><br><small>${escapeHtml(row.telepon || '-')}</small></td>
+      <td>${escapeHtml(row.plat_nomor || '-')}<br><small>${escapeHtml(row.merk_tipe || '-')}</small></td>
+      <td>${escapeHtml(row.layanan_nama || '-')}</td>
+      <td>${escapeHtml(row.tanggal || '-')}<br><small>${escapeHtml(row.waktu || '-')}</small></td>
+      <td>
+        <!-- ID asli database (row.id) tetap disembunyikan di sini agar sistem ubah status tetap berfungsi -->
+        <select class="booking-status-select ${bookingStatusClass(row.status)}" data-booking-id="${escapeHtml(row.id)}">
+          ${['Baru', 'Diproses', 'Dikonversi', 'Batal'].map(status => `<option value="${status}" ${status === row.status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select>
+      </td>
+    </tr>
+  `}).join('');
+
+  // Script untuk mendeteksi perubahan status
+  tbody.querySelectorAll('.booking-status-select').forEach(select => {
+    select.addEventListener('change', () => updateBookingStatus(select.dataset.bookingId, select.value, select));
+  });
+}
+
+function renderBookingPagination(pagination){
+  const container = document.getElementById('bookingPagination');
+  if (!container) return;
+
+  const page = Number(pagination?.page || 1);
+  const totalPages = Number(pagination?.totalPages || 0);
+  const total = Number(pagination?.total || 0);
+  if (totalPages <= 1) {
+    container.textContent = total ? `${total} booking` : '';
+    return;
+  }
+
+  container.innerHTML = `
+    <span>${total} booking · Halaman ${page} dari ${totalPages}</span>
+    <button class="pg" type="button" aria-label="Halaman sebelumnya" ${page <= 1 ? 'disabled' : `onclick="changeBookingPage(${page - 1})"`}>‹</button>
+    <button class="pg" type="button" aria-label="Halaman berikutnya" ${page >= totalPages ? 'disabled' : `onclick="changeBookingPage(${page + 1})"`}>›</button>
+  `;
+}
+
+function changeBookingPage(page){
+  bookingPage = Math.max(1, Number(page) || 1);
+  loadBookingData();
+}
+
+async function loadBookingData(){
+  if (!getAdminToken()) return;
+  const tbody = document.getElementById('bookingTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6">Memuat booking...</td></tr>';
+  try {
+    const params = new URLSearchParams({ paginate: '1', page: String(bookingPage), limit: '20' });
+    const response = await fetch(`/api/booking?${params}`, { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat booking');
+    if (data.pagination && data.pagination.totalPages > 0 && bookingPage > data.pagination.totalPages) {
+      bookingPage = data.pagination.totalPages;
+      return loadBookingData();
+    }
+    if (data.pagination && data.pagination.totalPages === 0 && bookingPage !== 1) {
+      bookingPage = 1;
+      return loadBookingData();
+    }
+    const rows = Array.isArray(data) ? data : (data.items || []);
+    renderBookingTable(rows);
+    renderBookingPagination(data.pagination);
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6">${escapeHtml(error.message || 'Gagal memuat booking')}</td></tr>`;
+    renderBookingPagination(null);
+  }
+}
+
+function renderMitraBookingRows(rows, tbody){
+  if (!tbody) return;
+  tbody.innerHTML = rows.length ? rows.map(booking => {
+    const isOpen = ['Baru', 'Diproses'].includes(booking.status);
+    const nextStatuses = booking.status === 'Baru'
+      ? ['Diproses', 'Dikonversi', 'Batal']
+      : booking.status === 'Diproses' ? ['Dikonversi', 'Batal'] : [];
+    return `
+      <tr>
+        <td><b>${escapeHtml(booking.nama_showroom)}</b><br>${escapeHtml(booking.pic_nama || '-')} · ${escapeHtml(booking.mitra_telepon || '-')}</td>
+        <td>${escapeHtml(booking.unit || `${Number(booking.total_unit || 0)} unit`)}</td>
+        <td>${escapeHtml(booking.layanan_nama)}<br>${formatCurrency(booking.harga_layanan)} / unit</td>
+        <td>${escapeHtml(booking.tanggal)}<br>${escapeHtml(String(booking.waktu || '').slice(0, 5))}</td>
+        <td>${escapeHtml(booking.catatan || '-')}</td>
+        <td><span class="${booking.status === 'Dikonversi' ? 'tag green' : booking.status === 'Batal' ? 'tag' : 'tag yellow'}">${escapeHtml(booking.status)}</span>
+          ${isOpen ? `<select class="input" style="margin-top:6px;min-width:130px;" aria-label="Ubah status booking ${booking.id}" onchange="updateMitraBookingStatus(${Number(booking.id)}, this)">
+            <option value="">Pilih aksi...</option>
+            ${nextStatuses.map(status => `<option value="${status}">${status === 'Dikonversi' ? 'Buat SPK' : status}</option>`).join('')}
+          </select>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('') : '<tr><td colspan="6">Belum ada booking armada dari mitra.</td></tr>';
+}
+
+async function loadMitraBookings(){
+  if (!getAdminToken()) return;
+  const tbody = document.getElementById('adminBookingArmadaRows');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6">Memuat booking armada mitra...</td></tr>';
+  try {
+    const response = await fetch('/api/mitra/admin/bookings', { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat booking armada mitra');
+    renderMitraBookingRows(data, tbody);
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6">${escapeHtml(error.message || 'Gagal memuat booking armada mitra')}</td></tr>`;
+  }
+}
+
+async function loadMitraAdminData(){
+  if (!getAdminToken()) return;
+  const mitraBody = document.getElementById('adminMitraRows');
+  const bookingBody = document.getElementById('adminMitraBookingRows');
+  const adminBookingBody = document.getElementById('adminBookingArmadaRows');
+  const paymentBody = document.getElementById('adminMitraPaymentRows');
+  const billableBody = document.getElementById('adminMitraBillableRows');
+  const errorEl = document.getElementById('adminMitraError');
+  const dueDateInput = document.getElementById('mitraInvoiceDueDate');
+  if (dueDateInput && !dueDateInput.value) {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    dueDateInput.value = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`;
+  }
+  if (mitraBody) mitraBody.innerHTML = '<tr><td colspan="5">Memuat mitra...</td></tr>';
+  if (bookingBody) bookingBody.innerHTML = '<tr><td colspan="6">Memuat booking armada...</td></tr>';
+  if (paymentBody) paymentBody.innerHTML = '<tr><td colspan="5">Memuat laporan pembayaran...</td></tr>';
+  if (billableBody) billableBody.innerHTML = '<tr><td colspan="7">Memuat SPK siap ditagihkan...</td></tr>';
+  if (errorEl) errorEl.textContent = '';
+
+  try {
+    const [mitraResponse, bookingResponse, paymentResponse, billableResponse] = await Promise.all([
+      fetch('/api/mitra/admin/mitra', { headers: authHeaders() }),
+      fetch('/api/mitra/admin/bookings', { headers: authHeaders() }),
+      fetch('/api/mitra/admin/payment-reports', { headers: authHeaders() }),
+      fetch('/api/mitra/admin/billable-spk', { headers: authHeaders() })
+    ]);
+    const [mitraData, bookingData, paymentData, billableData] = await Promise.all([
+      mitraResponse.json(), bookingResponse.json(), paymentResponse.json(), billableResponse.json()
+    ]);
+    if (!mitraResponse.ok) throw new Error(mitraData.error || 'Gagal memuat daftar mitra');
+    if (!bookingResponse.ok) throw new Error(bookingData.error || 'Gagal memuat booking armada');
+    if (!paymentResponse.ok) throw new Error(paymentData.error || 'Gagal memuat laporan pembayaran');
+    if (!billableResponse.ok) throw new Error(billableData.error || 'Gagal memuat SPK siap ditagihkan');
+
+    if (mitraBody) {
+      mitraBody.innerHTML = mitraData.length ? mitraData.map(mitra => `
+        <tr>
+          <td><b>${escapeHtml(mitra.nama_showroom)}</b><br><span style="color:var(--muted);">${escapeHtml(mitra.pic_nama || '-')}</span></td>
+          <td>${escapeHtml(mitra.email || '-')}<br>${escapeHtml(mitra.telepon || '-')}</td>
+          <td>${Number(mitra.total_armada || 0)}</td>
+          <td>${Number(mitra.total_spk || 0)}</td>
+          <td><span class="${Number(mitra.aktif) === 1 ? 'tag green' : 'tag'}">${Number(mitra.aktif) === 1 ? 'Aktif' : 'Nonaktif'}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="5">Belum ada mitra terdaftar.</td></tr>';
+    }
+
+    renderMitraBookingRows(bookingData, bookingBody);
+    renderMitraBookingRows(bookingData, adminBookingBody);
+    if (billableBody) {
+      billableBody.innerHTML = billableData.length ? billableData.map(item => `
+        <tr>
+          <td><b>${escapeHtml(item.nama_showroom)}</b></td>
+          <td>${Number(item.total_unit || 0)} unit</td>
+          <td>${escapeHtml(item.periode_mulai || '-')} – ${escapeHtml(item.periode_selesai || '-')}</td>
+          <td>${formatCurrency(item.subtotal)}</td>
+          <td>${formatCurrency(item.diskon)}</td>
+          <td><b>${formatCurrency(item.total)}</b></td>
+          <td><button class="btn btn-green" type="button" onclick="createMitraInvoice(${Number(item.mitra_id)})">Buat &amp; Kirim Invoice</button></td>
+        </tr>
+      `).join('') : '<tr><td colspan="7">Belum ada SPK mitra selesai yang siap ditagihkan.</td></tr>';
+    }
+    if (paymentBody) {
+      paymentBody.innerHTML = paymentData.length ? paymentData.map(report => `
+        <tr>
+          <td><b>${escapeHtml(report.no_invoice)}</b></td>
+          <td>${escapeHtml(report.nama_showroom)}<br>${escapeHtml(report.pic_nama || '-')} · ${escapeHtml(report.telepon || '-')}</td>
+          <td>${formatCurrency(report.total)}</td>
+          <td>${escapeHtml(report.dilaporkan_pada || '-')}</td>
+          <td><button class="btn btn-green" type="button" onclick="updateMitraPaymentReport(${Number(report.invoice_id)}, 'verify')">Verifikasi</button>
+              <button class="btn btn-red" type="button" onclick="updateMitraPaymentReport(${Number(report.invoice_id)}, 'reject')">Tolak</button></td>
+        </tr>
+      `).join('') : '<tr><td colspan="5">Tidak ada pembayaran menunggu verifikasi.</td></tr>';
+    }
+  } catch (error) {
+    if (mitraBody) mitraBody.innerHTML = '<tr><td colspan="5">Data mitra gagal dimuat.</td></tr>';
+    if (bookingBody) bookingBody.innerHTML = '<tr><td colspan="6">Data booking gagal dimuat.</td></tr>';
+    if (adminBookingBody) adminBookingBody.innerHTML = '<tr><td colspan="6">Data booking gagal dimuat.</td></tr>';
+    if (paymentBody) paymentBody.innerHTML = '<tr><td colspan="5">Laporan pembayaran gagal dimuat.</td></tr>';
+    if (billableBody) billableBody.innerHTML = '<tr><td colspan="7">SPK siap ditagihkan gagal dimuat.</td></tr>';
+    if (errorEl) errorEl.textContent = error.message || 'Gagal memuat data mitra.';
+  }
+}
+
+async function createMitraInvoice(mitraId){
+  const jatuhTempo = document.getElementById('mitraInvoiceDueDate')?.value || '';
+  const dueDatePayload = jatuhTempo ? ` dengan jatuh tempo ${jatuhTempo}` : '';
+  if (!confirm(`Terbitkan invoice untuk mitra ini${dueDatePayload}? Invoice akan langsung terlihat di portal mitra.`)) return;
+  try {
+    const response = await fetch('/api/mitra/admin/invoices', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ mitra_id: mitraId, jatuh_tempo: jatuhTempo || null })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menerbitkan invoice');
+    alert(`Invoice ${data.no_invoice} berhasil diterbitkan dan tersedia di portal mitra.`);
+    await loadMitraAdminData();
+  } catch (error) {
+    alert(error.message || 'Gagal menerbitkan invoice.');
+  }
+}
+
+async function updateMitraPaymentReport(invoiceId, decision){
+  const action = decision === 'verify' ? 'memverifikasi pembayaran' : 'menolak laporan pembayaran';
+  if (!confirm(`Yakin ingin ${action} invoice ini?`)) return;
+  try {
+    const response = await fetch(`/api/mitra/admin/invoices/${encodeURIComponent(invoiceId)}/payment-status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ decision })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui status pembayaran');
+    await Promise.all([loadMitraAdminData(), loadKeuanganData()]);
+  } catch (error) {
+    alert(error.message || 'Gagal memperbarui status pembayaran.');
+  }
+}
+
+async function updateMitraBookingStatus(bookingId, select){
+  const status = select.value;
+  if (!status) return;
+  select.disabled = true;
+  try {
+    const response = await fetch(`/api/mitra/admin/bookings/${encodeURIComponent(bookingId)}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui booking armada');
+    if (status === 'Dikonversi') {
+      alert(`Booking dikonversi menjadi SPK: ${(data.spk || []).join(', ') || 'berhasil'}`);
+      await Promise.all([loadDashboardData(), loadOrderData()]);
+    }
+    await loadMitraAdminData();
+  } catch (error) {
+    alert(error.message || 'Gagal memperbarui booking armada.');
+    select.disabled = false;
+    select.value = '';
+  }
+}
+
+async function updateBookingStatus(id, status, select){
+  try {
+    const response = await fetch(`/api/booking/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui status booking');
+    select.className = `booking-status-select ${bookingStatusClass(status)}`;
+    await Promise.all([loadBookingData(), loadDashboardData()]);
+  } catch (error) {
+    alert(error.message || 'Gagal memperbarui status booking');
+    await Promise.all([loadBookingData(), loadDashboardData()]);
+  }
+}
+
+async function openSpkDetail(spkId){
+  try {
+    const response = await fetch(`/api/spk/${spkId}`, { headers: authHeaders() });
+    if (!response.ok) throw new Error('Gagal memuat detail SPK');
+
+    const spk = await response.json();
+    const detailTitle = document.getElementById('detailSpkTitle');
+    const detailMeta = document.getElementById('detailSpkMeta');
+    const detailStatus = document.getElementById('detailSpkStatus');
+    const detailBody = document.getElementById('detailSpkBody');
+    const downloadSpkBtn = document.getElementById('downloadSpkBtn');
+    const shareSpkBtn = document.getElementById('shareSpkBtn');
+
+    if (detailTitle) detailTitle.textContent = spk.no_spk || 'SPK';
+    if (detailMeta) detailMeta.textContent = spk.created_at ? `${spk.created_at.slice(0, 10)} • ${spk.created_at.slice(11, 16)} WIB` : '-';
+    if (detailStatus) {
+      detailStatus.textContent = spk.status || 'Menunggu';
+      detailStatus.className = `tag ${statusTag(spk.status).replace('tag ', '')}`;
+    }
+
+    if (detailBody) {
+      const fotoSebelum = (spk.foto || []).filter(item => item.tipe === 'sebelum');
+      const fotoSesudah = (spk.foto || []).filter(item => item.tipe === 'sesudah');
+
+      detailBody.innerHTML = `
+        <div class="spk-info-block">
+          <div class="k">Info Pelanggan</div>
+          <div class="v">${escapeHtml(spk.pelanggan || '-')}</div>
+          <div class="v2">${escapeHtml(spk.pelanggan_telepon || '-')} · ${escapeHtml(spk.pelanggan_email || '-')}</div>
+        </div>
+        <div class="spk-info-block">
+          <div class="k">Detail Kendaraan</div>
+          <div class="v2">Plat Nomor: <b style="color:var(--ink)">${escapeHtml(spk.plat_nomor || '-')}</b></div>
+          <div class="v2">Merk/Tipe: <b style="color:var(--ink)">${escapeHtml(spk.merk_tipe || '-')}</b></div>
+          <div class="v2">Tahun/Warna: ${escapeHtml(spk.tahun || '-')} (${escapeHtml(spk.warna || '-')})</div>
+        </div>
+        <div class="spk-info-block">
+          <div class="k">Teknisi Checklist &amp; Masking</div>
+          <ul class="checklist">
+            ${(spk.checklist || []).map(item => `
+              <li class="${item.selesai ? 'done' : ''}"><span class="box">${item.selesai ? '✓' : ''}</span>${escapeHtml(item.item)}</li>
+            `).join('') || '<li><span class="box"></span>Belum ada checklist.</li>'}
+          </ul>
+        </div>
+        <div class="spk-info-block">
+          <div class="k">Foto Hasil Kerja</div>
+          <div class="photo-slots">
+            <div class="photo-slot">
+              ${fotoSebelum.length
+                ? `<img src="${escapeHtml(fotoSebelum[0].path)}" alt="Foto sebelum cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
+                : '📷'}
+              <span>${fotoSebelum.length ? 'Sebelum Cuci' : 'Belum ada foto sebelum'}</span>
+            </div>
+            <div class="photo-slot">
+              ${fotoSesudah.length
+                ? `<img src="${escapeHtml(fotoSesudah[0].path)}" alt="Foto sesudah cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
+                : '📷'}
+              <span>${fotoSesudah.length ? 'Setelah Selesai' : 'Belum ada foto sesudah'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="spk-info-block">
+          <div class="k">Laporan Teknisi</div>
+          <div class="v2" style="white-space:pre-wrap;">${escapeHtml(spk.laporan?.laporan || 'Belum ada laporan penyelesaian.')}</div>
+          ${spk.laporan?.teknisi_nama ? `<div class="v2">Dikirim oleh ${escapeHtml(spk.laporan.teknisi_nama)} · ${escapeHtml(spk.laporan.updated_at || spk.laporan.created_at || '')}</div>` : ''}
+        </div>
+      `;
+    }
+
+    if (downloadSpkBtn) {
+      downloadSpkBtn.onclick = async () => {
+        const response = await fetch(`/api/spk/${encodeURIComponent(spk.id)}/pdf`, { headers: authHeaders() });
+        if (!response.ok) throw new Error('Gagal mengunduh PDF SPK');
+        const blobUrl = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `SPK-${spk.no_spk || spk.id}.pdf`;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+      };
+    }
+
+    if (shareSpkBtn) {
+      const phone = String(spk.pelanggan_telepon || '').replace(/\D/g, '');
+      const whatsappNumber = phone.startsWith('0') ? `62${phone.slice(1)}` : phone.startsWith('8') ? `62${phone}` : phone;
+      shareSpkBtn.disabled = spk.status !== 'Selesai' || !whatsappNumber;
+      shareSpkBtn.title = shareSpkBtn.disabled
+        ? 'SPK hanya dapat dibagikan setelah selesai dan nomor WhatsApp pelanggan tersedia.'
+        : 'Kirim tautan portal agar pelanggan dapat mengunduh SPK.';
+      shareSpkBtn.onclick = () => {
+        const portalUrl = `${window.location.origin}/pelanggan-portal.html`;
+        const text = `Halo ${spk.pelanggan || 'Pelanggan'}, SPK ${spk.no_spk} sudah selesai. Silakan masuk ke portal pelanggan untuk melihat dan mengunduh SPK: ${portalUrl}`;
+        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+      };
+    }
+
+    openModal('modalSpkDetail');
+  } catch (error) {
+    console.error(error);
+    alert('Gagal membuka detail SPK');
+  }
+}
+
+async function loadDashboardData(){
+  const token = getAdminToken();
+  if (!token) return;
+
+  const headers = authHeaders();
+
+  try {
+    const [statsRes, antrianRes, trenRes, spkRes] = await Promise.all([
+      fetch('/api/dashboard/stats', { headers }),
+      fetch('/api/dashboard/antrian', { headers }),
+      fetch('/api/dashboard/tren', { headers }),
+      fetch('/api/spk', { headers })
+    ]);
+
+    const stats = statsRes.ok ? await statsRes.json() : {};
+    const antrian = antrianRes.ok ? await antrianRes.json() : [];
+    const tren = trenRes.ok ? await trenRes.json() : { harian: [] };
+    const spkResponse = spkRes.ok ? await spkRes.json() : [];
+    const spk = Array.isArray(spkResponse) ? spkResponse : (spkResponse.items || []);
+
+    renderDashboardStats(stats);
+    renderTrendChart(tren);
+    renderAntrian(antrian);
+    renderOrderTable(spk);
+    const bars = document.querySelectorAll('#trendBars .bar');
+    if (bars.length) {
+      const values = tren.harian?.map(item => item.jumlah || 0) || [0,0,0,0,0,0,0];
+      const max = Math.max(...values, 1);
+      bars.forEach((bar, index) => {
+        const value = values[index] || 0;
+        bar.style.height = `${Math.max(18, (value / max) * 100)}%`;
+      });
+    }
+  } catch (error) {
+    console.error('Gagal memuat dashboard data:', error);
+  }
+}
+
+async function loadPelangganData(){
+  const token = getAdminToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch('/api/pelanggan/list', { headers: authHeaders() });
+    if (!response.ok) return;
+    const rows = await response.json();
+    renderPelangganTable(rows);
+  } catch (error) {
+    console.error('Gagal memuat data pelanggan:', error);
+  }
+}
+
+async function loadTeknisiData() {
+  const container = document.getElementById('teknisiCardsContainer');
+  
+  if(!container) return; // Mencegah error jika elemen tidak ditemukan
+
+  // Tampilkan efek loading sementara
+  container.innerHTML = '<div class="tek-card" style="justify-content:center; padding:30px;"><div class="tek-name" style="color:var(--muted);">Membaca data teknisi...</div></div>';
+  
+  try {
+    const response = await fetch('/api/teknisi/list', {
+      method: 'GET',
+      headers: authHeaders() // HARUS dipastikan token tersisip dengan benar
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Gagal memuat daftar teknisi. Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // PROTEKSI STRUKTUR DATA: 
+    // Pastikan kita mengirimkan Array ke renderTeknisiCards
+    const rows = Array.isArray(data) ? data : (data.items || data.data || []);
+    
+    renderTeknisiCards(rows);
+    
+  } catch (error) {
+    console.error('Error loadTeknisiData:', error);
+    container.innerHTML = `<div class="tek-card" style="justify-content:center; padding:20px; color:#b02a37; border-color:#f5c2c7; background:#f8d7da;"><b>Gagal memuat data:</b> <br>${error.message}</div>`;
+  }
+}
+
+async function loadSettings(){
+  const token = getAdminToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch('/api/pengaturan', { headers: authHeaders() });
+    if (!response.ok) return;
+    const data = await response.json();
+    settingsCache = data || {};
+
+    document.getElementById('settingHargaReguler').value = settingsCache.harga_reguler || '';
+    document.getElementById('settingDiskonB2B').value = settingsCache.diskon_b2b_persen || '';
+    document.getElementById('settingNamaBisnis').value = settingsCache.nama_bisnis || '';
+    document.getElementById('settingTagline').value = settingsCache.tagline || '';
+    document.getElementById('settingKontak').value = settingsCache.kontak || '';
+    document.getElementById('settingAlamat').value = settingsCache.alamat || '';
+  } catch (error) {
+    console.error('Gagal memuat pengaturan:', error);
+  }
+}
+
+async function saveHargaSettings(){
+  const payload = {
+    harga_reguler: document.getElementById('settingHargaReguler').value,
+    diskon_b2b_persen: document.getElementById('settingDiskonB2B').value,
+    garansi_text: settingsCache.garansi_text || ''
+  };
+
+  try {
+    const response = await fetch('/api/pengaturan', {
+      method: 'PUT',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan pengaturan harga');
+    alert('Pengaturan harga berhasil disimpan.');
+  } catch (error) {
+    alert(error.message || 'Gagal menyimpan pengaturan harga');
+  }
+}
+
+async function saveProfilSettings(){
+  const payload = {
+    nama_bisnis: document.getElementById('settingNamaBisnis').value,
+    tagline: document.getElementById('settingTagline').value,
+    kontak: document.getElementById('settingKontak').value,
+    alamat: document.getElementById('settingAlamat').value,
+    website: settingsCache.website || '',
+    email: settingsCache.email || '',
+    brand_blue: settingsCache.brand_blue || '',
+    brand_red: settingsCache.brand_red || '',
+    font_family: settingsCache.font_family || '',
+    harga_reguler: settingsCache.harga_reguler || '',
+    diskon_b2b_persen: settingsCache.diskon_b2b_persen || '',
+    garansi_text: settingsCache.garansi_text || ''
+  };
+
+  try {
+    const response = await fetch('/api/pengaturan', {
+      method: 'PUT',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menyimpan profil bisnis');
+    alert('Profil bisnis berhasil disimpan.');
+  } catch (error) {
+    alert(error.message || 'Gagal menyimpan profil bisnis');
+  }
+}
+
+async function loadSpkOptions(){
+  const layananSelect = document.getElementById('newSpkLayanan');
+  const teknisiSelect = document.getElementById('newSpkTeknisi');
+  if (!layananSelect || !teknisiSelect || !getAdminToken()) return;
+
+  try {
+    const [layananRes, teknisiRes] = await Promise.all([
+      fetch('/api/layanan'),
+      fetch('/api/teknisi/list', { headers: authHeaders() })
+    ]);
+    const layanan = layananRes.ok ? await layananRes.json() : [];
+    const teknisi = teknisiRes.ok ? await teknisiRes.json() : [];
+    globalTeknisiList = teknisi.filter(item => Number(item.aktif) === 1);
+
+    layananSelect.innerHTML = '<option value="">Pilih layanan...</option>';
+    layanan.filter(item => item.aktif !== 0).forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.nama} - ${formatCurrency(item.harga)}`;
+      layananSelect.appendChild(option);
+    });
+
+    teknisiSelect.innerHTML = '<option value="">Tanpa penugasan</option>';
+    globalTeknisiList.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.nama;
+      teknisiSelect.appendChild(option);
+    });
+    await loadOrderData();
+  } catch (error) {
+    layananSelect.innerHTML = '<option value="">Layanan tidak tersedia</option>';
+    alert('Gagal memuat pilihan layanan dan teknisi.');
+  }
+}
+
+async function createSpk(){
+  const button = document.getElementById('createSpkBtn');
+  const layananId = Number(document.getElementById('newSpkLayanan')?.value || 0);
+  const platNomor = document.getElementById('newSpkPlat')?.value.trim() || '';
+  const merkTipe = document.getElementById('newSpkMerk')?.value.trim() || '';
+  const teknisiId = document.getElementById('newSpkTeknisi')?.value || '';
+
+  if (!platNomor || !layananId) {
+    alert('Plat nomor dan layanan wajib diisi.');
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Menyimpan...';
+  try {
+    const response = await fetch('/api/spk', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        plat_nomor: platNomor,
+        merk_tipe: merkTipe,
+        layanan_id: layananId,
+        teknisi_id: teknisiId || null,
+        pelanggan_nama: document.getElementById('newSpkNama')?.value.trim() || null,
+        pelanggan_telepon: document.getElementById('newSpkTelepon')?.value.trim() || null
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal membuat SPK');
+
+    closeModal('modalSpkNew');
+    alert(`SPK ${data.no_spk || data.spk?.no_spk || ''} berhasil dibuat.`);
+    await loadDashboardData();
+  } catch (error) {
+    alert(error.message || 'Gagal membuat SPK.');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Simpan & Buat SPK';
+  }
+}
+
+async function adminLogin(event){
+  event?.preventDefault();
+  const identifier = document.getElementById('adminLoginIdentifier')?.value.trim() || '';
+  const password = document.getElementById('adminLoginPassword')?.value || '';
+
+  if (!identifier || !password) {
+    setAdminLoginError('Email admin dan password wajib diisi.');
+    return;
+  }
+
+  try {
+    setAdminLoginError('');
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password, role: 'admin' })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Login admin gagal');
+    }
+
+    localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+    localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(data.user));
+    hideAdminLogin();
+    setAdminLoginError('');
+
+    await loadDashboardData();
+    await loadPelangganData();
+    await loadTeknisiData();
+    await loadSettings();
+    await loadSpkOptions();
+  } catch (error) {
+    setAdminLoginError(error.message || 'Login admin gagal');
+  }
+}
+
+async function restoreAdminSession(){
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (!token) {
+    showAdminLogin();
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
+      showAdminLogin();
+      return;
+    }
+
+    const user = await response.json();
+    if (user.role !== 'admin') {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
+      showAdminLogin();
+      return;
+    }
+
+    hideAdminLogin();
+    await loadDashboardData();
+    await loadPelangganData();
+    await loadTeknisiData();
+    await loadSettings();
+    await loadSpkOptions();
+  } catch (error) {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_USER_KEY);
+    showAdminLogin();
+  }
+}
+
+document.querySelectorAll('.modal-overlay').forEach(ov=>{
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('active'); });
+});
+
+document.getElementById('saveHargaBtn')?.addEventListener('click', saveHargaSettings);
+document.getElementById('saveProfilBtn')?.addEventListener('click', saveProfilSettings);
+document.getElementById('createSpkBtn')?.addEventListener('click', createSpk);
+
+document.addEventListener('DOMContentLoaded', () => {
+  restoreAdminSession();
+  window.setInterval(refreshLiveSpkTables, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshLiveSpkTables();
+  });
+});
+
+async function refreshLiveSpkTables(){
+  if (!getAdminToken() || document.hidden) return;
+
+  try {
+    if (document.getElementById('page-booking')?.classList.contains('active')) {
+      await Promise.all([loadBookingData(), loadMitraBookings()]);
+    } else if (document.getElementById('page-mitra')?.classList.contains('active')) {
+      await loadMitraAdminData();
+    }
+
+    const headers = authHeaders();
+    const search = document.getElementById('dashboardSearch')?.value.trim() || '';
+    const spkUrl = search ? `/api/spk?search=${encodeURIComponent(search)}` : '/api/spk';
+    const [antrianResponse, spkResponse] = await Promise.all([
+      fetch('/api/dashboard/antrian', { headers }),
+      fetch(spkUrl, { headers })
+    ]);
+
+    if (!antrianResponse.ok || !spkResponse.ok) return;
+
+    const [antrian, spkData] = await Promise.all([antrianResponse.json(), spkResponse.json()]);
+    let spkRows = Array.isArray(spkData) ? spkData : (spkData.items || []);
+    const filterDate = document.getElementById('filterOrderDate')?.value;
+    const filterStatus = document.getElementById('filterOrderStatus')?.value;
+
+    if (filterDate) spkRows = spkRows.filter(row => row.created_at && row.created_at.startsWith(filterDate));
+    if (filterStatus) spkRows = spkRows.filter(row => row.status === filterStatus);
+
+    renderAntrian(antrian);
+    renderOrderTable(spkRows);
+  } catch (error) {
+    console.error('Gagal menyinkronkan antrian dan Live SPK:', error);
+  }
+}
+
+async function loadOrderData(searchTerm) {
+  if (!getAdminToken()) return;
+  
+  const tbody = document.getElementById('orderTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9">Memuat data SPK...</td></tr>';
+  
+  try {
+    const search = typeof searchTerm === 'string'
+      ? searchTerm.trim()
+      : (document.getElementById('dashboardSearch')?.value.trim() || '');
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    const response = await fetch(`/api/spk${params.size ? `?${params}` : ''}`, { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat SPK');
+    
+    let rows = Array.isArray(data) ? data : (data.items || []);
+    
+    // Ambil nilai dari input filter di atas
+    const filterDate = document.getElementById('filterOrderDate')?.value;
+    const filterStatus = document.getElementById('filterOrderStatus')?.value;
+    
+    // Terapkan Filter Tanggal (jika dipilih)
+    if (filterDate) {
+      rows = rows.filter(r => r.created_at && r.created_at.startsWith(filterDate));
+    }
+    
+    // Terapkan Filter Status (jika dipilih)
+    if (filterStatus) {
+      rows = rows.filter(r => r.status === filterStatus);
+    }
+    
+    // Kirim data yang sudah disaring ke tabel
+    renderOrderTable(rows);
+    
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="color:var(--red); text-align:center;">${escapeHtml(error.message || 'Gagal memuat SPK')}</td></tr>`;
+  }
+}
+
+// Simpan data teknisi aktif untuk digunakan di tabel SPK
+let globalTeknisiList = [];
+
+// Fungsi ini akan mengambil daftar teknisi dari server
+async function loadGlobalTeknisi() {
+  try {
+    const response = await fetch('/api/teknisi/list', { 
+      headers: authHeaders() 
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const rows = Array.isArray(data) ? data : (data.items || data.data || []);
+      // Hanya simpan teknisi yang statusnya Aktif (1)
+      globalTeknisiList = rows.filter(t => t.aktif === 1);
+    }
+  } catch (error) {
+    console.error('Gagal memuat daftar teknisi global', error);
+  }
+}
+
+async function changeTeknisiSpk(spkId, teknisiId) {
+  if (!teknisiId) return;
+  
+  try {
+    const response = await fetch(`/api/spk/${spkId}/teknisi`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ teknisi_id: teknisiId })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal mengubah teknisi');
+    alert('Teknisi berhasil ditugaskan ke SPK tersebut!');
+    await Promise.all([loadOrderData(), loadDashboardData()]);
+    
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+</script>
+
+</body>
+</html>

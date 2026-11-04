@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layanan — CuciMesin</title>
+<style>
+  :root{
+    --navy:#102b4d;
+    --blue-dark:#0d2340;
+    --blue-darker:#08182b;
+    --blue:#2563eb;
+    --blue-mid:#1d4ed8;
+    --green-dark:#0d2340;
+    --green-darker:#08182b;
+    --green:#2563eb;
+    --red:#d62828;
+    --red-dark:#a61b1b;
+    --ink:#172638;
+    --muted:#53657c;
+    --bg-soft:#f5f7fb;
+    --border:#dfe7f3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg,#edf3ef 0%,#f3f5f4 100%);
+    line-height:1.55;
+  }
+  a{text-decoration:none;color:inherit;}
+
+  /* Header */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;
+    border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,.88);
+    backdrop-filter:blur(10px);
+    box-shadow:0 8px 20px rgba(24,39,32,.03);
+    position:sticky;top:0;z-index:50;
+  }
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{
+    width:38px;height:38px;border-radius:10px;
+    background:var(--bg-soft);
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+  }
+  .logo-text{line-height:1.1;}
+  .logo-text .name{font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-0.2px;}
+  .logo-text .tag{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--red);}
+
+  nav{display:flex;align-items:center;gap:34px;}
+  nav a{font-size:14.5px;font-weight:600;color:#8b968f;transition:color .15s;}
+  nav a.active{color:var(--blue);font-weight:700;}
+  nav a:hover{color:var(--blue);}
+
+  .header-actions{display:flex;align-items:center;gap:12px;position:relative;}
+  .header-link{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14.5px;color:var(--navy);}
+  .header-login-link{
+    padding:10px 16px;border-radius:8px;background:var(--bg-soft);
+    border:1px solid var(--border);cursor:pointer;text-decoration:none;
+  }
+  .header-link svg{width:16px;height:16px;}
+
+  /* Hero / intro */
+  .intro{
+    text-align:center;
+    padding:60px 24px 10px;
+  }
+  .eyebrow{
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:1px;
+    color:var(--red);
+    margin-bottom:14px;
+  }
+  .intro h1{
+    font-size:32px;
+    font-weight:800;
+    max-width:640px;
+    margin:0 auto 16px;
+    letter-spacing:-0.3px;
+    color:var(--ink);
+  }
+  .intro p{
+    font-size:14.5px;
+    color:var(--muted);
+    max-width:480px;
+    margin:0 auto;
+  }
+
+  /* Pricing */
+  .pricing{
+    padding:56px 24px 100px;
+  }
+  .pricing-grid{
+    max-width:1020px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:0;
+    align-items:stretch;
+  }
+  .plan{
+    background:linear-gradient(180deg,#ffffff 0%,#fbfcfb 100%);
+    border:1px solid rgba(162,174,168,.42);
+    padding:30px 26px;
+    display:flex;
+    flex-direction:column;
+  }
+  .plan:first-child{border-radius:12px 0 0 12px;}
+  .plan:last-child{border-radius:0 12px 12px 0;}
+  .plan.featured{
+    border:2px solid var(--blue);
+    border-radius:14px;
+    margin:-14px 0;
+    padding-top:0;
+    position:relative;
+    z-index:2;
+    box-shadow:0 18px 40px rgba(37,99,235,.14);
+  }
+  .ribbon{
+    background:var(--red);
+    color:#fff;
+    text-align:center;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.4px;
+    padding:9px 12px;
+    margin:0 -2px 22px;
+    border-radius:12px 12px 0 0;
+  }
+  .plan h3{
+    font-size:19px;
+    font-weight:800;
+    margin-bottom:8px;
+    color:var(--ink);
+    line-height:1.25;
+  }
+  .plan .desc{
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:20px;
+    min-height:36px;
+  }
+  .price{
+    display:flex;
+    align-items:baseline;
+    gap:5px;
+    margin-bottom:20px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--border);
+  }
+  .price .amount{
+    font-size:27px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .price .per{
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .features{
+    list-style:none;
+    flex:1;
+    margin-bottom:28px;
+  }
+  .features li{
+    display:flex;
+    gap:9px;
+    font-size:13.5px;
+    color:#3d4a43;
+    margin-bottom:14px;
+    align-items:flex-start;
+  }
+  .features li.strong{font-weight:700;color:var(--ink);}
+  .features li .check{
+    color:var(--blue);
+    font-weight:800;
+    flex-shrink:0;
+  }
+  .btn{
+    display:block;
+    text-align:center;
+    padding:13px 18px;
+    border-radius:8px;
+    font-size:13.5px;
+    font-weight:700;
+    border:none;
+    cursor:pointer;
+    width:100%;
+  }
+  .btn-ghost{
+    background:#eef4ff;
+    color:var(--ink);
+  }
+  .btn-ghost:hover{background:#e0ebff;}
+  .btn-solid{
+    background:linear-gradient(135deg,var(--blue),var(--blue-dark));
+    color:#fff;
+  }
+  .btn-solid:hover{filter:brightness(1.04);}
+  .plan:not(.featured){box-shadow:0 10px 24px rgba(17,32,27,.04);transition:all .18s ease;}
+  .plan:not(.featured):hover{transform:translateY(-2px);box-shadow:0 16px 30px rgba(17,32,27,.08);}
+
+  @media (max-width:860px){
+    header{flex-wrap:wrap;gap:12px;}
+    nav{display:flex;order:3;width:100%;justify-content:center;flex-wrap:wrap;gap:12px 20px;}
+    nav a{font-size:13px;}
+    .pricing-grid{grid-template-columns:1fr;max-width:420px;}
+    .plan, .plan:first-child, .plan:last-child{border-radius:12px;}
+    .plan.featured{margin:20px 0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚗</div>
+    <div class="logo-text">
+      <div class="name">CuciMesin</div>
+      <div class="tag">CARWASH</div>
+    </div>
+  </div>
+   <nav>
+    <a href="/index.html" >Beranda</a>
+    <a href="/layanan.html" class="active">Layanan</a>
+    <a href="/booking.html">Booking Online</a>
+    <a href="/tentang.html">Tentang Kami</a>
+    <a href="/kontak.html">Kontak</a>
+    <a href="/mitra-landing.html">Jadi Mitra</a>
+  </nav>
+  <div class="header-actions">
+    <a class="header-link header-login-link" href="/pelanggan-portal.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      LOGIN
+    </a>
+  </div>
+</header>
+
+<section class="intro">
+  <div class="eyebrow">PILIHAN LAYANAN</div>
+  <h1>Solusi Detailing Sesuai Kebutuhan Anda</h1>
+  <p>Transparan, tanpa biaya tersembunyi. Semua paket sudah termasuk garansi aman kelistrikan.</p>
+</section>
+
+<section class="pricing">
+  <div class="pricing-grid">
+
+    <div class="plan">
+      <h3>Reguler Wash</h3>
+      <div class="desc">Untuk perawatan harian kendaraan pribadi.</div>
+      <div class="price">
+        <span class="amount">Rp 250k</span>
+        <span class="per">/ mobil</span>
+      </div>
+      <ul class="features">
+        <li><span class="check">✓</span>Masking sensor &amp; ECU</li>
+        <li><span class="check">✓</span>Cuci kering (Dry-wash)</li>
+        <li><span class="check">✓</span>Pembersihan debu &amp; oli ringan</li>
+      </ul>
+      <a class="btn btn-ghost" href="/booking.html?layanan=Reguler%20Wash">Pilih Reguler</a>
+    </div>
+
+    <div class="plan featured">
+      <div class="ribbon">PALING DIREKOMENDASIKAN</div>
+      <h3 style="color:var(--green)">Spesialis Showroom</h3>
+      <div class="desc">Restorasi nilai jual untuk B2B/Showroom.</div>
+      <div class="price">
+        <span class="amount">Rp 450k</span>
+        <span class="per">/ mobil</span>
+      </div>
+      <ul class="features">
+        <li class="strong"><span class="check">✓</span>Semua fitur Reguler Wash</li>
+        <li><span class="check">✓</span>Deep cleaning kerak oli menahun</li>
+        <li><span class="check">✓</span>Engine dressing premium (Anti getas)</li>
+        <li><span class="check">✓</span>Sertifikat garansi digital</li>
+        <li><span class="check">✓</span>Prioritas antrean &amp; Home Service</li>
+      </ul>
+      <a class="btn btn-solid" href="/booking.html?layanan=Spesialis%20Showroom">BOOKING B2B SEKARANG</a>
+    </div>
+
+    <div class="plan">
+      <h3>Ultimate Detail</h3>
+      <div class="desc">Paket sultan untuk Car Enthusiast.</div>
+      <div class="price">
+        <span class="amount">Rp 850k</span>
+        <span class="per">/ mobil</span>
+      </div>
+      <ul class="features">
+        <li><span class="check">✓</span>Semua fitur Spesialis Showroom</li>
+        <li><span class="check">✓</span>Pembersihan ruang mesin total</li>
+        <li><span class="check">✓</span>Coating blok mesin</li>
+      </ul>
+      <a class="btn btn-ghost" href="/booking.html?layanan=Ultimate%20Detail">Pilih Ultimate</a>
+    </div>
+
+  </div>
+</section>
+
+</body>
+</html>

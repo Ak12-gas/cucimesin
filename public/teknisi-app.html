@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuciMesin — Dashboard Teknisi</title>
+<style>
+  :root{
+    --ink:#1c2b23; --muted:#6b7770; --bg-soft:#f3f5f4; --border:#e5e8e6;
+    --green-dark:#153c2c; --green-mid:#1a4a34; --green-bg:#e1f3e6; --green-text:#1e7d3f;
+    --red:#b02a37; --red-dark:#8f2129; --yellow-bg:#fdf2d0; --yellow-text:#8a6d1a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:#f3f5f4;min-height:100vh;
+  }
+  a{text-decoration:none;color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+
+  .auth-overlay{
+    position:fixed;inset:0;background:rgba(16,21,29,.62);display:flex;align-items:center;justify-content:center;padding:24px;z-index:200;
+  }
+  .auth-overlay.hidden{display:none;}
+  .auth-card{
+    width:min(100%, 360px);background:#fff;border-radius:16px;padding:24px;
+    box-shadow:0 24px 65px rgba(0,0,0,.25);
+  }
+  .auth-card h2{font-size:22px;font-weight:800;margin-bottom:8px;}
+  .auth-card p{font-size:12.5px;color:var(--muted);margin-bottom:18px;}
+  .auth-card .field{margin-bottom:14px;}
+  .auth-card .field label{display:block;font-size:12px;font-weight:700;margin-bottom:7px;}
+  .auth-card .field input{width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;}
+  .auth-card .btn{margin-top:4px;}
+  .auth-card .error{min-height:18px;margin-top:10px;font-size:12px;color:var(--red);font-weight:700;}
+
+  .phone{
+    width:100%;min-height:100vh;background:#f3f5f4;position:relative;
+  }
+  .web-header{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30;}
+  .web-brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:16px;color:var(--green-dark);}
+  .web-brand .mark{width:34px;height:34px;display:grid;place-items:center;background:var(--green-dark);border-radius:8px;color:#fff;}
+  .web-account{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--muted);}
+  .web-account strong{color:var(--ink);font-size:13px;}
+  .web-account button{border:1px solid var(--border);background:#fff;color:var(--ink);border-radius:7px;padding:8px 12px;font-size:12px;font-weight:700;}
+  .web-layout{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:calc(100vh - 68px);}
+  .web-sidebar{padding:24px 14px;background:#fff;border-right:1px solid var(--border);}
+  .web-sidebar .nav-label{padding:0 12px 10px;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;}
+  .web-sidebar nav{display:grid;gap:5px;}
+  .web-sidebar button{display:flex;align-items:center;gap:11px;width:100%;border:0;border-radius:7px;padding:11px 12px;background:transparent;color:#4d5b53;text-align:left;font-size:13px;font-weight:700;}
+  .web-sidebar button:hover{background:#f3f5f4;}
+  .web-sidebar button.active{background:var(--green-dark);color:#fff;}
+  .web-sidebar .ic{width:18px;text-align:center;}
+  .web-main{min-width:0;padding:28px clamp(20px,3vw,44px) 48px;}
+  .statusbar,.bottom-nav{display:none;}
+  .screen{display:none;flex-direction:column;min-height:calc(100vh - 124px);max-width:1440px;margin:0 auto;}
+  .screen.active{display:flex;}
+
+  .app-header{display:flex;align-items:center;justify-content:space-between;padding:0 0 22px;}
+  .app-header h1{font-size:25px;font-weight:800;}
+  .app-header .back{font-size:18px;font-weight:800;cursor:pointer;}
+  .app-header .bell{width:32px;height:32px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;font-size:13px;}
+
+  .tabs3{display:flex;gap:6px;padding:0 0 18px;max-width:560px;}
+  .tabs3 button{flex:1;border:1px solid var(--border);background:#fff;color:var(--muted);font-size:12px;font-weight:700;padding:10px 16px;border-radius:7px;}
+  .tabs3 button.active{background:var(--green-mid);color:#fff;}
+
+  .list-wrap{flex:1;overflow:visible;padding:0;}
+  .task-tab{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+  .task-card{background:#fff;border:1px solid rgba(162,174,168,0.42);border-radius:8px;padding:18px;margin:0;box-shadow:0 4px 14px rgba(17,32,27,0.035);}
+  .task-card:hover{box-shadow:0 14px 28px rgba(17,32,27,0.06);}
+  .task-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .task-top .id{font-size:13.5px;font-weight:800;}
+  .badge{padding:4px 10px;border-radius:12px;font-size:10px;font-weight:800;}
+  .badge.wait{background:var(--yellow-bg);color:var(--yellow-text);}
+  .badge.work{background:#e1e9fd;color:#2952d9;}
+  .badge.done{background:var(--green-bg);color:var(--green-text);}
+  .task-row{display:flex;align-items:center;gap:8px;font-size:12px;color:#354039;margin-bottom:6px;}
+  .task-row .ic{width:16px;text-align:center;color:var(--muted);}
+  .task-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+  .task-foot .time{font-size:11px;color:var(--muted);}
+  .task-foot .link{font-size:12px;font-weight:800;color:var(--green-text);}
+  .task-action{border:1px solid var(--green-mid);border-radius:6px;background:#fff;color:var(--green-mid);padding:7px 11px;font-size:11px;font-weight:800;}
+  .task-action.primary{background:var(--green-mid);color:#fff;}
+
+  .info-card{background:#fff;border:1px solid rgba(162,174,168,0.42);border-radius:8px;padding:20px;margin:0 0 16px;max-width:960px;box-shadow:0 4px 14px rgba(17,32,27,0.035);}
+  .info-card .k{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:10px;}
+  .info-row{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:9px;}
+  .info-row span:first-child{color:var(--muted);}
+  .info-row span:last-child{font-weight:700;text-align:right;}
+  .info-row.hl span:last-child{color:var(--red);}
+
+  .checklist li{list-style:none;display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:12px;}
+  .checklist li .box{width:17px;height:17px;border-radius:5px;border:1.5px solid #c7cec9;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+  .checklist li.done .box{background:var(--green-mid);border-color:var(--green-mid);color:#fff;}
+  .checklist li.done{color:#354039;}
+  .checklist li:not(.done){color:var(--muted);}
+  .checklist input{width:17px;height:17px;accent-color:var(--green-mid);}
+  .upload-control{display:grid;gap:8px;place-items:center;width:100%;height:100%;cursor:pointer;font-weight:700;}
+  .upload-control input{position:absolute;width:1px;height:1px;opacity:0;}
+  .upload-control:focus-within{outline:2px solid var(--green-mid);outline-offset:3px;}
+  .photo-status{font-size:11px;color:var(--muted);}
+  .report-field{width:100%;max-width:960px;min-height:120px;border:1px solid var(--border);border-radius:8px;padding:12px;font:inherit;resize:vertical;margin-bottom:12px;}
+  .form-error{min-height:18px;color:var(--red);font-size:12px;margin-bottom:8px;}
+
+  .bottom-btn{padding:18px 0 0;max-width:960px;}
+  .btn{width:auto;min-width:190px;border:none;border-radius:7px;padding:12px 18px;font-weight:700;font-size:13px;color:#fff;box-shadow:0 4px 12px rgba(22,41,74,0.08);}
+  .btn.green{background:linear-gradient(135deg, var(--green-mid) 0%, var(--green) 100%);}
+  .btn.red{background:linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);}
+
+  .instruction{padding:0 0 18px;}
+  .instruction .t{font-size:14px;font-weight:800;margin-bottom:6px;}
+  .instruction .s{font-size:12px;color:var(--muted);}
+  .camera-box{
+    margin:0 0 18px;background:#fff;border:1px dashed #bfc9c2;border-radius:8px;height:240px;max-width:960px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  }
+  .camera-box .cam-ic{font-size:34px;}
+  .camera-box .t{font-size:13.5px;font-weight:800;color:var(--green-text);}
+  .slot-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:0 0 10px;}
+  .slots{display:flex;gap:12px;padding:0;flex:1;max-width:960px;}
+  .slot{flex:1;border:1.5px dashed var(--border);border-radius:8px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);}
+
+  .timer-card{margin:0 0 18px;background:linear-gradient(160deg,var(--green-dark),#0f2018);border-radius:8px;padding:26px;text-align:left;color:#fff;max-width:960px;}
+  .timer-card .lbl{font-size:10px;letter-spacing:.5px;color:#a9c2b3;font-weight:700;margin-bottom:6px;}
+  .timer-card .time{font-size:32px;font-weight:800;letter-spacing:1px;margin-bottom:6px;}
+  .timer-card .sub{font-size:11.5px;color:#cfe0d5;}
+
+  .timeline{padding:0;flex:1;max-width:960px;}
+  .timeline .h{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+  .tl-item{display:flex;align-items:center;gap:12px;margin-bottom:16px;font-size:13px;}
+  .tl-item .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+  .tl-item.done .dot{background:var(--green-bg);color:var(--green-text);}
+  .tl-item.active .dot{background:var(--red);color:#fff;}
+  .tl-item.pending .dot{background:var(--bg-soft);color:var(--muted);}
+  .tl-item.done span{color:#354039;}
+  .tl-item.active span{color:var(--red);font-weight:800;}
+  .tl-item.pending span{color:var(--muted);}
+
+  .result-box{margin:0 0 16px;background:#fff;border:1px dashed #bfc9c2;border-radius:8px;height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;max-width:960px;}
+  .result-box .cam-ic{font-size:30px;}
+  .result-box .t{font-size:12.5px;font-weight:700;color:var(--muted);}
+  .compare-card{margin:0 0 14px;background:#fff;border:1px solid rgba(162,174,168,0.42);border-radius:8px;padding:18px;max-width:960px;box-shadow:0 4px 14px rgba(17,32,27,0.035);}
+  .compare-card .h{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
+  .compare-tabs{display:flex;gap:16px;font-size:12px;font-weight:700;margin-bottom:12px;}
+  .compare-tabs .a{color:var(--red);}
+  .compare-tabs .b{color:var(--muted);}
+  .compare-note{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--muted);background:var(--green-bg);border-radius:8px;padding:10px 12px;}
+  .compare-note .ic{color:var(--green-text);}
+
+  .toast{
+    position:fixed;left:50%;right:auto;bottom:24px;transform:translateX(-50%);width:min(480px,calc(100vw - 32px));background:#10151d;color:#fff;border-radius:8px;
+    padding:14px 16px;display:none;gap:10px;align-items:flex-start;box-shadow:0 10px 30px rgba(0,0,0,.3);
+  }
+  .toast.show{display:flex;}
+  .toast .ic{width:26px;height:26px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+  .toast .t{font-size:12.5px;font-weight:800;margin-bottom:2px;}
+  .toast .s{font-size:11px;color:#c3ccc7;}
+
+  /* riwayat placeholder */
+  .placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);}
+  .placeholder .ic{font-size:40px;}
+
+  /* profil */
+  .profile-card{display:flex;flex-direction:column;align-items:flex-start;padding:22px;background:#fff;border:1px solid var(--border);border-radius:8px;max-width:960px;margin-bottom:16px;}
+  .profile-avatar{
+    width:64px;height:64px;border-radius:50%;background:linear-gradient(160deg,var(--green-dark),#0f2018);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;margin-bottom:12px;
+  }
+  .profile-name{font-size:17px;font-weight:800;}
+  .profile-role{font-size:12.5px;color:var(--muted);margin-bottom:10px;}
+  .profile-badge{background:var(--green-bg);color:var(--green-text);font-size:11px;font-weight:700;padding:5px 12px;border-radius:14px;}
+
+  .profile-stats{display:flex;gap:12px;padding:0 0 18px;max-width:960px;}
+  .pstat{flex:1;background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;text-align:left;}
+  .pstat .v{font-size:15px;font-weight:800;}
+  .pstat .l{font-size:10px;color:var(--muted);font-weight:600;margin-top:3px;}
+
+  .profile-menu{padding:0 20px;background:#fff;border:1px solid var(--border);border-radius:8px;max-width:960px;}
+  .pmenu-item{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;}
+  .pmenu-item .ic{width:20px;text-align:center;font-size:15px;}
+  .pmenu-item .t{flex:1;}
+  .pmenu-item .chev{color:var(--muted);font-size:16px;}
+
+  .btn.logout{background:#fff;border:1.5px solid var(--red);color:var(--red);}
+
+  /* riwayat */
+  .riwayat-summary{display:flex;gap:12px;padding:0 0 18px;max-width:960px;}
+  .rs-item{flex:1;background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;text-align:left;}
+  .rs-item .v{font-size:14px;font-weight:800;}
+  .rs-item .l{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:3px;}
+  .riwayat-search{display:flex;gap:8px;padding:0 0 14px;max-width:960px;}
+  .riwayat-search input{flex:1;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;font-family:inherit;}
+  .riwayat-search select{border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:11.5px;font-family:inherit;background:#fff;}
+  .rh-date{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:6px 2px 8px;}
+  .rh-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;max-width:960px;}
+  .rh-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .rh-top .id{font-size:13px;font-weight:800;}
+  .rh-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+  @media(max-width:760px){
+    .web-header{height:60px;padding:0 16px;}
+    .web-layout{display:block;min-height:calc(100vh - 60px);}
+    .web-sidebar{position:sticky;top:60px;z-index:20;padding:8px 12px;border-right:0;border-bottom:1px solid var(--border);overflow-x:auto;}
+    .web-sidebar .nav-label{display:none;}
+    .web-sidebar nav{display:flex;min-width:max-content;gap:6px;}
+    .web-sidebar button{width:auto;white-space:nowrap;padding:10px 12px;}
+    .web-main{padding:22px 16px 32px;}
+    .screen{min-height:calc(100vh - 150px);}
+    .task-tab{grid-template-columns:1fr;}
+    .profile-stats{flex-wrap:wrap;}
+    .pstat{min-width:calc(50% - 6px);}
+  }
+  @media(max-width:480px){
+    .web-brand{font-size:14px;}
+    .web-account span{display:none;}
+    .app-header h1{font-size:21px;}
+    .tabs3 button{padding:9px 6px;font-size:11px;}
+    .riwayat-search{flex-direction:column;}
+    .riwayat-search input,.riwayat-search select{width:100%;}
+    .info-row{gap:16px;align-items:flex-start;}
+    .info-row span:last-child{max-width:60%;}
+    .slots{flex-direction:column;}
+    .slot{min-height:90px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="teknisiAuthOverlay" class="auth-overlay">
+  <div class="auth-card">
+    <h2>Masuk Teknisi</h2>
+    <p>Gunakan akun teknisi resmi untuk melihat tugas dan mengelola SPK.</p>
+    <form onsubmit="loginTeknisi(event)">
+      <div class="field">
+        <label for="teknisiLoginIdentifier">Email / WhatsApp</label>
+        <input id="teknisiLoginIdentifier" type="text" autocomplete="username" placeholder="ahmad@cucimesinmobil.id" required>
+      </div>
+      <div class="field">
+        <label for="teknisiLoginPassword">Password</label>
+        <input id="teknisiLoginPassword" type="password" autocomplete="current-password" placeholder="Masukkan password" required>
+      </div>
+      <button class="btn green" type="submit">Masuk ke Dashboard</button>
+      <div id="teknisiLoginError" class="error" role="alert" aria-live="polite"></div>
+    </form>
+  </div>
+</div>
+
+<div class="phone">
+
+  <header class="web-header">
+    <div class="web-brand"><span class="mark">CM</span><span>CuciMesin <span style="font-weight:500;color:var(--muted);">/ Teknisi</span></span></div>
+    <div class="web-account"><span>Masuk sebagai</span><strong id="webTechnicianName">Teknisi</strong><button type="button" onclick="logoutTeknisi()">Keluar</button></div>
+  </header>
+  <div class="web-layout">
+    <aside class="web-sidebar">
+      <div class="nav-label">Workspace</div>
+      <nav aria-label="Navigasi teknisi">
+        <button class="active" data-screen="scr-list" type="button" onclick="showScreen('scr-list')"><span class="ic">☰</span>Tugas</button>
+        <button data-screen="scr-riwayat" type="button" onclick="showScreen('scr-riwayat')"><span class="ic">◷</span>Riwayat</button>
+        <button data-screen="scr-profil" type="button" onclick="showScreen('scr-profil')"><span class="ic">👤</span>Profil</button>
+      </nav>
+    </aside>
+    <main class="web-main">
+
+  <!-- ===== SCREEN: TUGAS SAYA (LIST) ===== -->
+  <div class="screen active" id="scr-list">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><h1>Tugas Saya</h1><div class="bell">🔔</div></div>
+    <div class="tabs3">
+      <button class="active" onclick="showTaskTab('menunggu', this)">Menunggu</button>
+      <button onclick="showTaskTab('dikerjakan', this)">Dikerjakan</button>
+      <button onclick="showTaskTab('selesai', this)">Selesai</button>
+    </div>
+    <div class="list-wrap">
+
+      <div class="task-tab" id="tab-menunggu">
+        <div class="task-card">
+          <div class="task-top"><span class="id">SPK-202409-082</span><span class="badge wait">Menunggu</span></div>
+          <div class="task-row"><span class="ic">👤</span>PT Bintang Logistik (Member B2B)</div>
+          <div class="task-row"><span class="ic">🚚</span>B 9821 TBA • Toyota Dyna</div>
+          <div class="task-row"><span class="ic">🔧</span>Cuci Mesin Premium</div>
+          <div class="task-foot"><span class="time">🕒 Est: 10:15 WIB</span><span class="link" onclick="showScreen('scr-detail')">Detail Tugas ›</span></div>
+        </div>
+        <div class="task-card">
+          <div class="task-top"><span class="id">SPK-202409-083</span><span class="badge wait">Menunggu</span></div>
+          <div class="task-row"><span class="ic">👤</span>Hendra Wijaya</div>
+          <div class="task-row"><span class="ic">🚚</span>D 1404 VAA • Toyota Hilux</div>
+          <div class="task-row"><span class="ic">🔧</span>Cuci Mesin Standard</div>
+          <div class="task-foot"><span class="time">🕒 Est: 11:30 WIB</span><span class="link" onclick="showScreen('scr-detail')">Detail Tugas ›</span></div>
+        </div>
+      </div>
+
+      <div class="task-tab" id="tab-dikerjakan" style="display:none;">
+        <div class="task-card">
+          <div class="task-top"><span class="id">SPK-202409-081</span><span class="badge work">Dikerjakan</span></div>
+          <div class="task-row"><span class="ic">👤</span>Siska Amanda</div>
+          <div class="task-row"><span class="ic">🚚</span>B 2011 PLT • Honda CR-V</div>
+          <div class="task-row"><span class="ic">🔧</span>Engine Detailing</div>
+          <div class="task-foot"><span class="time">⏱️ Berjalan 00:15:32</span><span class="link" onclick="showScreen('scr-proses')">Lanjutkan ›</span></div>
+        </div>
+      </div>
+
+      <div class="task-tab" id="tab-selesai" style="display:none;">
+        <div class="task-card">
+          <div class="task-top"><span class="id">SPK-202409-079</span><span class="badge done">Selesai</span></div>
+          <div class="task-row"><span class="ic">👤</span>PT Karya Jaya (Member)</div>
+          <div class="task-row"><span class="ic">🚚</span>B 8891 SFX • Daihatsu Xenia</div>
+          <div class="task-row"><span class="ic">🔧</span>Cuci Mesin Premium</div>
+          <div class="task-foot"><span class="time">✅ Selesai 08:42 WIB</span><span class="link" onclick="showScreen('scr-final')">Lihat Laporan ›</span></div>
+        </div>
+        <div class="task-card">
+          <div class="task-top"><span class="id">SPK-202409-076</span><span class="badge done">Selesai</span></div>
+          <div class="task-row"><span class="ic">👤</span>Budi Pratama</div>
+          <div class="task-row"><span class="ic">🚚</span>L 3321 QW • Honda Brio</div>
+          <div class="task-row"><span class="ic">🔧</span>Cuci Mesin Standard</div>
+          <div class="task-foot"><span class="time">✅ Selesai Kemarin</span><span class="link" onclick="showScreen('scr-final')">Lihat Laporan ›</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <button class="active" onclick="showScreen('scr-list')"><span class="ic">☰</span>Tugas</button>
+      <button onclick="showScreen('scr-riwayat')"><span class="ic">📊</span>Riwayat</button>
+      <button onclick="showScreen('scr-profil')"><span class="ic">👤</span>Profil</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: DETAIL SPK ===== -->
+  <div class="screen" id="scr-detail">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><span class="back" onclick="showScreen('scr-list')">‹</span><h1 id="detailTitle">Detail SPK</h1><div class="bell">🔔</div></div>
+    <div class="info-card">
+      <div class="k">Info Kendaraan &amp; Pelanggan</div>
+      <div id="detailInfoRows"></div>
+    </div>
+    <div class="info-card">
+      <div class="k">Checklist &amp; Masking Teknisi</div>
+      <ul class="checklist" id="detailChecklist"></ul>
+    </div>
+    <div class="info-card" id="detailReportCard" style="display:none;">
+      <div class="k">Laporan Penyelesaian</div>
+      <div id="detailReportText" style="white-space:pre-wrap;"></div>
+    </div>
+    <div style="flex:1;"></div>
+    <div class="bottom-btn"><button class="btn green" onclick="showScreen('scr-foto1')">Lanjut ke Foto Sebelum Cuci</button></div>
+  </div>
+
+  <!-- ===== SCREEN: FOTO SEBELUM ===== -->
+  <div class="screen" id="scr-foto1">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><span class="back" onclick="showScreen('scr-detail')">‹</span><h1>Foto Mesin Sebelum</h1><div class="bell">🔔</div></div>
+    <div class="instruction">
+      <div class="t">Ambil foto mesin dari 2 sudut berbeda</div>
+      <div class="s">Gunakan pencahayaan yang cukup agar kondisi mesin sebelum dicuci terlihat jelas.</div>
+    </div>
+    <div class="camera-box"><div class="cam-ic">📷</div><div class="t">Buka Kamera</div></div>
+    <div class="slot-label">Foto Upload (2 Slot)</div>
+    <div class="slots">
+      <div class="slot"><label class="upload-control" for="beforePhotoLeft">📷<span>Unggah sudut kiri</span><input id="beforePhotoLeft" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="uploadTaskPhoto('sebelum', this)"></label><span class="photo-status" id="beforeLeftStatus">Belum ada foto</span></div>
+      <div class="slot"><label class="upload-control" for="beforePhotoRight">📷<span>Unggah sudut kanan</span><input id="beforePhotoRight" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="uploadTaskPhoto('sebelum', this)"></label><span class="photo-status" id="beforeRightStatus">Belum ada foto</span></div>
+    </div>
+    <div class="bottom-btn"><button class="btn green" onclick="startJob()">Mulai Pengerjaan</button></div>
+  </div>
+
+  <!-- ===== SCREEN: PROSES PENGERJAAN ===== -->
+  <div class="screen" id="scr-proses">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><span class="back" onclick="showScreen('scr-foto1')">‹</span><h1 id="processTitle">Proses Pengerjaan</h1><div class="bell">🔔</div></div>
+    <div class="timer-card">
+      <div class="lbl">DURASI PENGERJAAN</div>
+      <div class="time" id="timerDisplay">00:15:32</div>
+      <div class="sub" id="timerSubtitle">Durasi aktif akan dimulai saat pengerjaan disimpan.</div>
+    </div>
+    <div class="timeline">
+      <div class="h">Timeline Aktivitas</div>
+      <div class="tl-item done"><div class="dot">✓</div><span>Checklist &amp; Masking</span></div>
+      <div class="tl-item done"><div class="dot">✓</div><span>Foto Sebelum Cuci</span></div>
+      <div class="tl-item active"><div class="dot">●</div><span>Proses Cuci Mesin (Aktif)</span></div>
+      <div class="tl-item pending"><div class="dot">○</div><span>Foto Setelah Selesai</span></div>
+    </div>
+    <div class="bottom-btn"><button class="btn green" onclick="showScreen('scr-foto2')">Lanjutkan</button></div>
+  </div>
+
+  <!-- ===== SCREEN: FOTO SESUDAH ===== -->
+  <div class="screen" id="scr-foto2">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><span class="back" onclick="showScreen('scr-proses')">‹</span><h1>Foto Mesin Sesudah</h1><div class="bell">🔔</div></div>
+    <div class="result-box">
+      <label class="upload-control" for="afterPhotoInput">📷<span>Ambil atau pilih foto sesudah</span><input id="afterPhotoInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="uploadTaskPhoto('sesudah', this)"></label>
+      <span class="photo-status" id="afterPhotoStatus">Belum ada foto hasil</span>
+    </div>
+    <div class="compare-card">
+      <div class="h">Perbandingan Foto Hasil</div>
+      <div class="compare-tabs"><span class="a">Sebelum Cuci</span><span class="b">Setelah Cuci</span></div>
+      <div class="compare-note"><span class="ic">✓</span><span>Pastikan hasil cuci sudah sesuai standar layanan garansi.</span></div>
+    </div>
+    <label class="slot-label" for="completionReport">Laporan pengerjaan</label>
+    <textarea id="completionReport" class="report-field" maxlength="5000" placeholder="Jelaskan hasil pengerjaan, kondisi mesin, dan catatan untuk pelanggan..."></textarea>
+    <div class="form-error" id="completionError" role="alert" aria-live="polite"></div>
+    <div style="flex:1;"></div>
+    <div class="bottom-btn"><button class="btn red" onclick="finishJob()">Selesai Pengerjaan</button></div>
+  </div>
+
+  <!-- ===== SCREEN: KIRIM LAPORAN (final) ===== -->
+  <div class="screen" id="scr-final">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><span class="back" onclick="showScreen('scr-foto2')">‹</span><h1>Foto Mesin Sesudah</h1><div class="bell">🔔</div></div>
+    <div class="result-box"><div class="cam-ic">📷</div><div class="t">Foto Hasil Akhir</div></div>
+    <div class="compare-card">
+      <div class="h">Perbandingan Foto Hasil</div>
+      <div class="compare-tabs"><span class="a">Sebelum Cuci</span><span class="b">Setelah Cuci</span></div>
+      <div class="compare-note"><span class="ic">✓</span><span>Pastikan hasil cuci sudah sesuai standar layanan garansi.</span></div>
+    </div>
+    <div style="flex:1;"></div>
+    <div class="bottom-btn"><button class="btn green" onclick="showScreen('scr-list')">Kirim Laporan &amp; Selesai</button></div>
+    <div class="toast show">
+      <div class="ic">✓</div>
+      <div><div class="t">Laporan Pengerjaan Tersimpan</div><div class="s" id="finalReportSummary">Admin dapat meninjau dokumentasi dan pelanggan dapat mengunduh SPK dari portal.</div></div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: RIWAYAT ===== -->
+  <div class="screen" id="scr-riwayat">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><h1>Riwayat</h1><div class="bell">🔔</div></div>
+
+    <div class="riwayat-summary">
+      <div class="rs-item"><div class="v" id="historyTotal">0</div><div class="l">Total Tugas</div></div>
+      <div class="rs-item"><div class="v" id="historyCompleted">0</div><div class="l">Selesai</div></div>
+      <div class="rs-item"><div class="v" id="historyActive">0</div><div class="l">Berjalan</div></div>
+    </div>
+
+    <div class="riwayat-search">
+      <input id="historySearch" type="search" placeholder="Cari nomor SPK atau plat nomor..." oninput="renderRiwayat()">
+      <select id="historyStatus" onchange="renderRiwayat()"><option value="">Semua status</option><option value="Menunggu">Menunggu</option><option value="Dikerjakan">Dikerjakan</option><option value="Selesai">Selesai</option></select>
+    </div>
+
+    <div class="list-wrap" id="teknisiHistoryList"><div class="rh-card">Memuat riwayat tugas...</div></div>
+
+    <div class="bottom-nav">
+      <button onclick="showScreen('scr-list')"><span class="ic">☰</span>Tugas</button>
+      <button class="active" onclick="showScreen('scr-riwayat')"><span class="ic">📊</span>Riwayat</button>
+      <button onclick="showScreen('scr-profil')"><span class="ic">👤</span>Profil</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: PROFIL ===== -->
+  <div class="screen" id="scr-profil">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="app-header"><h1>Profil</h1><div class="bell">🔔</div></div>
+
+    <div class="profile-card">
+      <div class="profile-avatar">AS</div>
+      <div class="profile-name">Ahmad Subarjo</div>
+      <div class="profile-role">Teknisi Spesialis Mesin</div>
+      <span class="profile-badge">🛡️ Teknisi Tersertifikasi</span>
+    </div>
+
+    <div class="profile-stats">
+      <div class="pstat"><div class="v" id="profileCompletedCount">0</div><div class="l">SPK Selesai</div></div>
+      <div class="pstat"><div class="v" id="profileActiveCount">0</div><div class="l">Tugas Aktif</div></div>
+    </div>
+
+    <div class="profile-menu">
+      <div class="pmenu-item"><span class="ic">📄</span><span class="t">Riwayat Kinerja</span><span class="chev">›</span></div>
+      <div class="pmenu-item"><span class="ic">🕒</span><span class="t">Jadwal &amp; Shift Kerja</span><span class="chev">›</span></div>
+      <div class="pmenu-item"><span class="ic">🔧</span><span class="t">SOP &amp; Panduan Teknisi</span><span class="chev">›</span></div>
+      <div class="pmenu-item"><span class="ic">⚙️</span><span class="t">Pengaturan Akun</span><span class="chev">›</span></div>
+      <div class="pmenu-item"><span class="ic">❓</span><span class="t">Bantuan</span><span class="chev">›</span></div>
+    </div>
+
+    <div class="bottom-btn"><button class="btn logout" onclick="logoutTeknisi()">Keluar</button></div>
+
+    <div class="bottom-nav">
+      <button onclick="showScreen('scr-list')"><span class="ic">☰</span>Tugas</button>
+      <button onclick="showScreen('scr-riwayat')"><span class="ic">📊</span>Riwayat</button>
+      <button class="active" onclick="showScreen('scr-profil')"><span class="ic">👤</span>Profil</button>
+    </div>
+  </div>
+
+</main>
+  </div>
+</div>
+
+<script>
+const TEKNISI_TOKEN_KEY = 'cucimesin_teknisi_token';
+const TEKNISI_USER_KEY = 'cucimesin_teknisi_user';
+let teknisiTasks = [];
+let selectedTask = null;
+let taskTimerInterval = null;
+
+function getTeknisiToken(){
+  return localStorage.getItem(TEKNISI_TOKEN_KEY) || '';
+}
+
+function logoutTeknisi(){
+  localStorage.removeItem(TEKNISI_TOKEN_KEY);
+  localStorage.removeItem(TEKNISI_USER_KEY);
+  window.location.reload();
+}
+
+function authHeaders(extra = {}){
+  const token = getTeknisiToken();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function normalizeIdentifier(value){
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw.toLowerCase();
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return raw;
+  if (digits.startsWith('62')) return '0' + digits.slice(2);
+  if (digits.startsWith('8')) return '0' + digits.slice(1);
+  return digits;
+}
+
+function setLoginError(message){
+  const el = document.getElementById('teknisiLoginError');
+  if (el) el.textContent = message || '';
+}
+
+function showLogin(){
+  document.getElementById('teknisiAuthOverlay')?.classList.remove('hidden');
+}
+
+function hideLogin(){
+  document.getElementById('teknisiAuthOverlay')?.classList.add('hidden');
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+  const navScreen = ['scr-list', 'scr-riwayat', 'scr-profil'].includes(id) ? id : 'scr-list';
+  document.querySelectorAll('.web-sidebar button[data-screen]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.screen === navScreen);
+  });
+}
+
+function showTaskTab(tab, el){
+  document.querySelectorAll('.task-tab').forEach(t=>t.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  document.querySelectorAll('.tabs3 button').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function formatCurrency(value){
+  const num = Number(value || 0);
+  return `Rp ${num.toLocaleString('id-ID')}`;
+}
+
+function statusBadge(status){
+  const map = {
+    Menunggu: 'wait',
+    Dikerjakan: 'work',
+    Selesai: 'done'
+  };
+  return map[status] || 'wait';
+}
+
+function renderTaskCard(task){
+  const action = task.status === 'Menunggu'
+    ? `<button class="task-action primary" type="button" onclick="acceptTask(${task.id})">Terima Tugas</button>`
+    : `<button class="task-action" type="button" onclick="openTaskDetail(${task.id})">${task.status === 'Selesai' ? 'Lihat Laporan' : 'Lanjutkan'}</button>`;
+
+  return `
+    <div class="task-card">
+      <div class="task-top"><span class="id">${escapeHtml(task.no_spk || '-')}</span><span class="badge ${statusBadge(task.status)}">${escapeHtml(task.status || 'Menunggu')}</span></div>
+      <div class="task-row"><span class="ic">👤</span>${escapeHtml(task.pelanggan || '-')}</div>
+      <div class="task-row"><span class="ic">🚚</span>${escapeHtml(task.plat_nomor || '-')} • ${escapeHtml(task.merk_tipe || '-')}</div>
+      <div class="task-row"><span class="ic">🔧</span>${escapeHtml(task.layanan_nama || task.layanan || '-')}</div>
+      <div class="task-foot">
+        <span class="time">${task.status === 'Dikerjakan' ? '⏱️ Berjalan ' + (task.waktu_mulai ? 'sudah dimulai' : 'standby') : '🕒 Est: ' + (task.created_at ? new Date(task.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '-')}</span>
+        ${action}
+      </div>
+    </div>
+  `;
+}
+
+function renderTaskTabs(){
+  const grouped = {
+    menunggu: teknisiTasks.filter(task => task.status === 'Menunggu'),
+    dikerjakan: teknisiTasks.filter(task => task.status === 'Dikerjakan'),
+    selesai: teknisiTasks.filter(task => task.status === 'Selesai')
+  };
+
+  ['menunggu', 'dikerjakan', 'selesai'].forEach(tab => {
+    const el = document.getElementById('tab-' + tab);
+    if (!el) return;
+    el.innerHTML = (grouped[tab] || []).map(renderTaskCard).join('') || `
+      <div class="task-card">
+        <div class="task-row"><span class="ic">✓</span>Tidak ada tugas pada kategori ini.</div>
+      </div>
+    `;
+  });
+}
+
+function renderDetailScreen(task){
+  document.getElementById('detailTitle').textContent = `Detail ${task.no_spk || 'SPK'}`;
+  document.getElementById('processTitle').textContent = `Proses ${task.no_spk || 'SPK'}`;
+  document.getElementById('timerSubtitle').textContent = `${task.layanan_nama || task.layanan || 'Layanan'} · ${task.plat_nomor || '-'}`;
+
+  const infoRows = document.getElementById('detailInfoRows');
+  if (infoRows) {
+    infoRows.innerHTML = `
+      <div class="info-row"><span>Nama Pelanggan</span><span>${escapeHtml(task.pelanggan || '-')}</span></div>
+      <div class="info-row hl"><span>Plat Mobil</span><span>${escapeHtml(task.plat_nomor || '-')}</span></div>
+      <div class="info-row"><span>Tipe Mobil</span><span>${escapeHtml(task.merk_tipe || '-')}${task.tahun ? ` (${escapeHtml(task.tahun)})` : ''}</span></div>
+      <div class="info-row"><span>Kategori/Harga</span><span>${escapeHtml(task.kategori || 'Normal')} • ${formatCurrency(task.total || 0)}</span></div>
+      <div class="info-row"><span>Status</span><span>${escapeHtml(task.status || 'Menunggu')}</span></div>
+      <div class="info-row"><span>Teknisi</span><span>${escapeHtml(task.teknisi_nama || '-')}</span></div>
+    `;
+  }
+
+  const checklist = document.getElementById('detailChecklist');
+  if (checklist) {
+    checklist.innerHTML = (task.checklist || []).map(item => `
+      <li class="${item.selesai ? 'done' : ''}"><input type="checkbox" ${item.selesai ? 'checked' : ''} ${task.status !== 'Dikerjakan' ? 'disabled' : ''} onchange="updateTaskChecklist(${item.id}, this.checked)"><span>${escapeHtml(item.item)}</span></li>
+    `).join('') || '<li><span class="box"></span>Belum ada checklist.</li>';
+  }
+
+  const fotoSebelum = (task.foto || []).filter(item => item.tipe === 'sebelum');
+  const fotoSesudah = (task.foto || []).filter(item => item.tipe === 'sesudah');
+  const photoPreview = document.getElementById('detailPhotoPreview');
+
+  if (photoPreview) {
+    photoPreview.innerHTML = `
+      <div class="result-box">
+        ${fotoSebelum.length ? `<img src="${fotoSebelum[0].path}" alt="Foto sebelum" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
+        <div class="t">Foto Sebelum Cuci</div>
+      </div>
+      <div class="result-box">
+        ${fotoSesudah.length ? `<img src="${fotoSesudah[0].path}" alt="Foto sesudah" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
+        <div class="t">Foto Setelah Selesai</div>
+      </div>
+    `;
+  }
+
+  const reportCard = document.getElementById('detailReportCard');
+  const reportText = document.getElementById('detailReportText');
+  if (reportCard && reportText) {
+    reportCard.style.display = task.laporan?.laporan ? 'block' : 'none';
+    reportText.textContent = task.laporan?.laporan || '';
+  }
+
+  const beforeStatus = document.getElementById('beforeLeftStatus');
+  const beforeRightStatus = document.getElementById('beforeRightStatus');
+  const afterStatus = document.getElementById('afterPhotoStatus');
+  if (beforeStatus) beforeStatus.textContent = fotoSebelum[0] ? 'Foto tersimpan' : 'Belum ada foto';
+  if (beforeRightStatus) beforeRightStatus.textContent = fotoSebelum[1] ? 'Foto tersimpan' : 'Belum ada foto';
+  if (afterStatus) afterStatus.textContent = fotoSesudah[0] ? 'Foto tersimpan' : 'Belum ada foto hasil';
+}
+
+function updateProfile(user){
+  const avatar = document.querySelector('.profile-avatar');
+  const name = document.querySelector('.profile-name');
+  const role = document.querySelector('.profile-role');
+
+  if (user && avatar) {
+    const initials = (user.nama || 'T')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
+
+    avatar.textContent = initials || 'T';
+  }
+
+  if (name) name.textContent = user?.nama || 'Teknisi';
+  if (role) role.textContent = 'Teknisi Spesialis Mesin';
+  const headerName = document.getElementById('webTechnicianName');
+  if (headerName) headerName.textContent = user?.nama || 'Teknisi';
+}
+
+function renderRiwayat(){
+  const completed = teknisiTasks.filter(task => task.status === 'Selesai');
+  const active = teknisiTasks.filter(task => task.status === 'Dikerjakan' || task.status === 'Menunggu');
+  document.getElementById('historyTotal').textContent = String(teknisiTasks.length);
+  document.getElementById('historyCompleted').textContent = String(completed.length);
+  document.getElementById('historyActive').textContent = String(active.length);
+  document.getElementById('profileCompletedCount').textContent = String(completed.length);
+  document.getElementById('profileActiveCount').textContent = String(active.length);
+
+  const query = (document.getElementById('historySearch')?.value || '').trim().toLocaleLowerCase('id-ID');
+  const status = document.getElementById('historyStatus')?.value || '';
+  const filteredTasks = teknisiTasks.filter((task) => {
+    const searchable = `${task.no_spk || ''} ${task.plat_nomor || ''} ${task.pelanggan || ''} ${task.merk_tipe || ''}`.toLocaleLowerCase('id-ID');
+    return (!query || searchable.includes(query)) && (!status || task.status === status);
+  });
+  const historyList = document.getElementById('teknisiHistoryList');
+  if (!historyList) return;
+  historyList.innerHTML = filteredTasks.length ? filteredTasks.map((task) => `
+    <article class="rh-card">
+      <div class="rh-top"><span class="id">${escapeHtml(task.no_spk || 'SPK')}</span><span class="badge ${statusBadge(task.status)}">${escapeHtml(task.status || 'Menunggu')}</span></div>
+      <div class="task-row"><span class="ic">👤</span>${escapeHtml(task.pelanggan || '-')}</div>
+      <div class="task-row"><span class="ic">🚘</span>${escapeHtml(task.plat_nomor || '-')} · ${escapeHtml(task.merk_tipe || '-')}</div>
+      <div class="rh-foot"><span>${escapeHtml(task.layanan_nama || task.layanan || '-')}</span><span>${task.created_at ? new Date(task.created_at).toLocaleDateString('id-ID') : '-'}</span></div>
+    </article>
+  `).join('') : '<div class="rh-card">Tidak ada tugas yang cocok.</div>';
+}
+
+async function acceptTask(taskId){
+  try {
+    const response = await fetch(`/api/spk/${taskId}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status: 'Dikerjakan' })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Gagal menerima tugas');
+    await Promise.all([openTaskDetail(taskId), loadTeknisiTasks()]);
+  } catch (error) {
+    alert(error.message || 'Gagal menerima tugas.');
+  }
+}
+
+async function updateTaskChecklist(itemId, selesai){
+  if (!selectedTask) return;
+  try {
+    const response = await fetch(`/api/spk/${selectedTask.id}/checklist/${itemId}`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ selesai })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui checklist');
+    selectedTask.checklist = (selectedTask.checklist || []).map((item) => item.id === data.id ? data : item);
+    renderDetailScreen(selectedTask);
+  } catch (error) {
+    alert(error.message || 'Gagal memperbarui checklist.');
+    await openTaskDetail(selectedTask.id);
+  }
+}
+
+async function uploadTaskPhoto(tipe, input){
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!selectedTask) {
+    alert('Buka detail tugas sebelum mengunggah foto.');
+    input.value = '';
+    return;
+  }
+
+  const statusId = input.id === 'beforePhotoLeft' ? 'beforeLeftStatus'
+    : input.id === 'beforePhotoRight' ? 'beforeRightStatus'
+      : 'afterPhotoStatus';
+  const status = document.getElementById(statusId);
+  status.textContent = 'Mengunggah...';
+
+  try {
+    const formData = new FormData();
+    formData.append('foto', file);
+    formData.append('tipe', tipe);
+    const response = await fetch(`/api/spk/${selectedTask.id}/foto`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Gagal mengunggah foto');
+
+    selectedTask.foto = [...(selectedTask.foto || []), data];
+    status.textContent = 'Foto tersimpan';
+    renderDetailScreen(selectedTask);
+    await loadTeknisiTasks();
+  } catch (error) {
+    status.textContent = 'Gagal mengunggah';
+    alert(error.message || 'Gagal mengunggah foto.');
+  } finally {
+    input.value = '';
+  }
+}
+
+async function openTaskDetail(taskId){
+  try {
+    const response = await fetch(`/api/spk/${taskId}`, { headers: authHeaders() });
+    if (!response.ok) throw new Error('Gagal memuat detail SPK');
+    selectedTask = await response.json();
+    renderDetailScreen(selectedTask);
+    showScreen('scr-detail');
+  } catch (error) {
+    alert(error.message || 'Gagal membuka detail tugas');
+  }
+}
+
+function startJob(){
+  if (!selectedTask) return;
+  if (selectedTask.status !== 'Dikerjakan') {
+    alert('Terima tugas terlebih dahulu sebelum memulai pengerjaan.');
+    return;
+  }
+  if (!(selectedTask.foto || []).some((photo) => photo.tipe === 'sebelum')) {
+    alert('Unggah minimal satu foto kondisi mesin sebelum pengerjaan.');
+    return;
+  }
+
+  showScreen('scr-proses');
+  startTaskTimer();
+}
+
+function startTaskTimer(){
+  if (taskTimerInterval) clearInterval(taskTimerInterval);
+  const startedAt = selectedTask?.waktu_mulai ? new Date(String(selectedTask.waktu_mulai).replace(' ', 'T')) : new Date();
+  const display = document.getElementById('timerDisplay');
+  const update = () => {
+    const elapsed = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+    const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const seconds = String(elapsed % 60).padStart(2, '0');
+    display.textContent = `${hours}:${minutes}:${seconds}`;
+  };
+  update();
+  taskTimerInterval = window.setInterval(update, 1000);
+}
+
+async function finishJob(){
+  if (!selectedTask) return;
+  const laporan = document.getElementById('completionReport').value.trim();
+  const error = document.getElementById('completionError');
+  const checklist = selectedTask.checklist || [];
+  if (checklist.some((item) => !Number(item.selesai))) {
+    error.textContent = 'Selesaikan semua item checklist sebelum mengirim laporan.';
+    return;
+  }
+  if (!(selectedTask.foto || []).some((photo) => photo.tipe === 'sesudah')) {
+    error.textContent = 'Unggah minimal satu foto hasil setelah pengerjaan.';
+    return;
+  }
+  if (laporan.length < 10) {
+    error.textContent = 'Laporan pengerjaan minimal 10 karakter.';
+    return;
+  }
+  error.textContent = '';
+
+  try {
+    const reportResponse = await fetch(`/api/spk/${selectedTask.id}/laporan`, {
+      method: 'PUT',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ laporan })
+    });
+    const reportData = await reportResponse.json().catch(() => ({}));
+    if (!reportResponse.ok) throw new Error(reportData.error || 'Gagal menyimpan laporan pengerjaan');
+
+    const statusResponse = await fetch(`/api/spk/${selectedTask.id}/status`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status: 'Selesai' })
+    });
+
+    const data = await statusResponse.json().catch(() => ({}));
+    if (!statusResponse.ok) throw new Error(data.error || 'Gagal menyelesaikan pekerjaan');
+
+    selectedTask = { ...selectedTask, ...data, laporan: reportData };
+    if (taskTimerInterval) clearInterval(taskTimerInterval);
+    document.getElementById('finalReportSummary').textContent = `Laporan ${selectedTask.no_spk} tersimpan. Admin dan pelanggan dapat melihat SPK beserta dokumentasinya.`;
+    showScreen('scr-final');
+    await loadTeknisiTasks();
+  } catch (error) {
+    document.getElementById('completionError').textContent = error.message || 'Gagal menyelesaikan tugas.';
+  }
+}
+
+async function loadTeknisiTasks(){
+  const token = getTeknisiToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch('/api/teknisi/me/tugas', { headers: authHeaders() });
+    if (!response.ok) throw new Error('Gagal memuat tugas teknisi');
+
+    teknisiTasks = await response.json();
+    renderTaskTabs();
+    renderRiwayat();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function loginTeknisi(event){
+  event?.preventDefault();
+  const identifier = normalizeIdentifier(document.getElementById('teknisiLoginIdentifier')?.value || '');
+  const password = document.getElementById('teknisiLoginPassword')?.value || '';
+
+  if (!identifier || !password) {
+    setLoginError('Masukkan email/WhatsApp dan password Anda.');
+    return;
+  }
+
+  try {
+    setLoginError('');
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password, role: 'teknisi' })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Login teknisi gagal');
+
+    localStorage.setItem(TEKNISI_TOKEN_KEY, data.token);
+    localStorage.setItem(TEKNISI_USER_KEY, JSON.stringify(data.user));
+    hideLogin();
+    updateProfile(data.user);
+    await loadTeknisiTasks();
+  } catch (error) {
+    setLoginError(error.message || 'Login teknisi gagal');
+  }
+}
+
+async function restoreTeknisiSession(){
+  const token = localStorage.getItem(TEKNISI_TOKEN_KEY);
+  const storedUser = localStorage.getItem(TEKNISI_USER_KEY);
+
+  if (!token || !storedUser) {
+    showLogin();
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Sesi tidak valid');
+
+    const user = await response.json();
+    if (user.role !== 'teknisi') throw new Error('Akun bukan teknisi');
+
+    updateProfile(user);
+    hideLogin();
+    await loadTeknisiTasks();
+  } catch (error) {
+    localStorage.removeItem(TEKNISI_TOKEN_KEY);
+    localStorage.removeItem(TEKNISI_USER_KEY);
+    showLogin();
+  }
+}
+
+window.addEventListener('DOMContentLoaded', restoreTeknisiSession);
+</script>
+
+</body>
+</html>

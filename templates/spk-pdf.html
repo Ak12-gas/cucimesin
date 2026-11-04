@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #26332b; font: 12px Arial, sans-serif; }
+    .header { display: flex; justify-content: space-between; border-bottom: 3px solid #198754; padding-bottom: 14px; }
+    h1 { color: #198754; font-size: 22px; margin: 0 0 5px; }
+    h2 { font-size: 16px; margin: 0; }
+    .muted { color: #68756d; }
+    .right { text-align: right; }
+    .section { margin-top: 18px; }
+    .section-title { background: #eaf6ef; border-left: 4px solid #198754; font-weight: bold; padding: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 28px; padding: 12px 4px; }
+    .field { padding: 4px 0; }
+    .label { color: #68756d; font-size: 10px; text-transform: uppercase; }
+    .value { font-weight: bold; margin-top: 2px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+    th, td { border-bottom: 1px solid #d9e2dc; padding: 8px 6px; text-align: left; }
+    th { color: #68756d; font-size: 10px; text-transform: uppercase; }
+    .total { color: #198754; font-size: 18px; font-weight: bold; text-align: right; }
+    .status-bayar { border-radius: 4px; font-weight: bold; margin-top: 12px; padding: 9px; }
+    .lunas { background: #eaf6ef; color: #146c43; }
+    .belum { background: #fff4e5; color: #9a6700; }
+    ul { list-style: none; margin: 0; padding: 10px 4px; }
+    li { padding: 4px 0; }
+    li.done { color: #146c43; }
+    .box { border: 1px solid #9aa79e; display: inline-block; height: 12px; margin-right: 6px; text-align: center; width: 12px; }
+    .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 10px; }
+    .photo-item { text-align: center; }
+    .photo-item img { height: 150px; object-fit: contain; width: 100%; }
+    .photo-placeholder { align-items: center; background: #f3f5f4; color: #68756d; display: flex; height: 150px; justify-content: center; }
+    .footer { border-top: 1px solid #d9e2dc; color: #68756d; font-size: 10px; margin-top: 25px; padding-top: 8px; text-align: center; }
+
+    /* ==== PENGATURAN UKURAN A4 ==== */
+    @page {
+      size: F4 portrait;
+      margin: 12mm 14mm;
+    }
+
+    html {
+      background: #fff;
+    }
+
+    body {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 12mm 14mm;
+      box-sizing: border-box;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @media print {
+      html,
+      body {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+      }
+
+      .section,
+      table,
+      .photo-grid,
+      .footer {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div><h1>{{NAMA_BISNIS}}</h1><div class="muted">{{ALAMAT}} | {{KONTAK}} | {{WEBSITE}}</div></div>
+    <div class="right"><h2>NOTA LAYANAN</h2><div>{{NO_SPK}}</div><div class="muted">{{TANGGAL}}</div></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Informasi Pelanggan dan Kendaraan</div>
+    <div class="grid">
+      <div class="field"><div class="label">Pelanggan</div><div class="value">{{PELANGGAN_NAMA}}</div><div class="muted">{{KATEGORI}} | {{PELANGGAN_TELEPON}}</div></div>
+      <div class="field"><div class="label">Kendaraan</div><div class="value">{{MERK_TIPE}}</div><div class="muted">{{PLAT_NOMOR}} | {{TAHUN}} | {{WARNA}}</div></div>
+      <div class="field"><div class="label">Teknisi</div><div class="value">{{TEKNISI}}</div></div>
+      <div class="field"><div class="label">Status</div><div class="value">{{STATUS}}</div><div class="muted">Mulai: {{WAKTU_MULAI}} | Selesai: {{WAKTU_SELESAI}}</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Layanan dan Biaya</div>
+    <table><thead><tr><th>Layanan</th><th>Durasi</th><th>Harga</th><th>Diskon</th><th>Total</th></tr></thead>
+      <tbody><tr><td>{{LAYANAN_NAMA}}</td><td>{{DURASI}} menit</td><td>Rp {{HARGA}}</td><td>Rp {{DISKON}}</td><td class="total">Rp {{TOTAL}}</td></tr></tbody>
+    </table>
+    {{STATUS_BAYAR}}
+  </div>
+  <div class="section"><div class="section-title">Checklist Pengerjaan</div><ul>{{CHECKLIST_ITEMS}}</ul></div>
+  {{FOTO_SECTION}}
+  {{CATATAN_SECTION}}
+  <div class="footer">Dokumen dicetak {{PRINTED_AT}}. Terima kasih telah menggunakan layanan kami.</div>
+</body>
+</html>

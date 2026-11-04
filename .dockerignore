@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.git
+.vscode
+node_modules
+data
+uploads
+npm-debug.log*
+coverage

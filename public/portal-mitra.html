@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuciMesin | B2B Portal</title>
+<style>
+  :root{
+    --ink:#172638; --muted:#53657c; --bg-soft:#f5f7fb; --border:#dfe7f3;
+    --navy:#102b4d; --dark:#0d2340; --dark2:#08182b; --blue:#2563eb; --blue-mid:#1d4ed8;
+    --red:#d62828; --red-dark:#a61b1b; --green:#2563eb; --green-mid:#1d4ed8; --green-bg:#eaf1ff; --green-text:#2563eb;
+    --yellow-bg:#fff3d6; --yellow-text:#8a6d1a; --orange-bg:#fde9d3; --orange-text:#b0641c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:linear-gradient(180deg,#edf3ef 0%, #f3f5f4 100%);font-size:14px;line-height:1.5;}
+  a{text-decoration:none;color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* ===== AUTH SCREENS ===== */
+  .auth-page{display:none;min-height:100vh;}
+  .auth-page.active{display:flex;}
+  .auth-visual{
+    width:42%;background:linear-gradient(160deg,var(--dark2),var(--dark));
+    color:#fff;padding:48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;
+  }
+  .auth-visual::before{content:'';position:absolute;width:340px;height:340px;border-radius:50%;background:rgba(255,255,255,.04);top:20%;left:-80px;}
+  .auth-visual::after{content:'';position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.03);bottom:-60px;right:-60px;}
+  .auth-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;z-index:1;}
+  .auth-brand .ic{width:30px;height:30px;border-radius:8px;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .auth-brand .sub{font-size:9.5px;font-weight:700;color:#e5b7ba;letter-spacing:.5px;}
+  .auth-headline{z-index:1;}
+  .auth-headline h1{font-size:28px;font-weight:800;line-height:1.3;margin-bottom:14px;}
+  .auth-headline p{font-size:13px;color:#b9c4bd;max-width:340px;}
+  .auth-form-side{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;position:relative;}
+  .auth-form-side .back{position:absolute;top:28px;right:36px;font-size:12px;font-weight:700;padding:8px 16px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#fff;}
+  .auth-form{width:100%;max-width:360px;background:#fff;border:1px solid rgba(162,174,168,0.42);border-radius:16px;padding:26px 24px;box-shadow:0 18px 44px rgba(17,32,27,0.08);}
+  .auth-form h2{font-size:21px;font-weight:800;margin-bottom:6px;}
+  .auth-form > p{font-size:12.5px;color:var(--muted);margin-bottom:24px;}
+  .seg-tabs{display:flex;background:var(--bg-soft);border-radius:8px;padding:4px;margin-bottom:22px;}
+  .seg-tabs button{flex:1;border:none;background:none;padding:9px;border-radius:6px;font-size:12.5px;font-weight:700;color:var(--muted);}
+  .seg-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .field input{width:100%;border:1px solid var(--border);background:#fff;border-radius:8px;padding:11px 13px;font-size:13px;color:var(--ink);}
+  .field input::placeholder{color:#a4aca7;}
+  .phone-input{display:flex;gap:8px;}
+  .phone-input .cc{width:52px;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;}
+  .phone-input input{flex:1;}
+  .field-link{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .field-link a{font-size:11.5px;color:var(--green-text);font-weight:700;}
+  .field-link a.red{color:var(--red);}
+  .check-row{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:18px;}
+  .check-row b{color:var(--red);font-weight:700;}
+  .check-row input{margin-top:2px;}
+  .btn-auth{width:100%;border:none;border-radius:8px;padding:13px;font-weight:700;font-size:13.5px;color:#fff;margin-bottom:16px;}
+  .btn-auth.green{background:var(--green-mid);}
+  .btn-auth.green:hover{background:var(--green);}
+  .btn-auth.red{background:var(--red);}
+  .btn-auth.red:hover{background:var(--red-dark);}
+  .auth-foot{text-align:center;font-size:12px;color:var(--muted);}
+  .auth-foot a{color:var(--red);font-weight:700;}
+  .auth-foot.mt{margin-top:8px;}
+
+  /* ===== PORTAL APP ===== */
+  #portal-app{display:none;min-height:100vh;}
+  #portal-app.active{display:block;}
+  .topnav{
+    background:rgba(15,32,24,0.96);color:#fff;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 32px;box-shadow:0 8px 20px rgba(24,39,32,0.08);
+  }
+  .tn-left{display:flex;align-items:center;gap:38px;}
+  .tn-brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:14.5px;line-height:1.15;}
+  .tn-brand .ic{width:28px;height:28px;border-radius:7px;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .tn-brand .tag{font-size:9px;font-weight:700;color:#b9c4bd;display:block;}
+  .tn-links{display:flex;gap:26px;}
+  .tn-links button{background:none;border:none;color:#9fada4;font-size:13px;font-weight:600;padding:6px 0;}
+  .tn-links button.active{color:#fff;font-weight:800;}
+  .tn-right{display:flex;align-items:center;gap:12px;font-size:12.5px;font-weight:700;}
+  .tn-avatar{width:30px;height:30px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+  .tn-logout{border:1px solid rgba(255,255,255,.25);border-radius:7px;background:transparent;color:#fff;padding:7px 10px;font-size:11px;font-weight:700;}
+
+  .ppage{display:none;padding:28px 32px 70px;max-width:1200px;margin:0 auto;}
+  .ppage.active{display:block;}
+  .ppage-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;}
+  .ppage-head h1{font-size:21px;font-weight:800;}
+  .ppage-head .sub{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .crumb{font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+  .crumb b{color:var(--ink);}
+  .btn{border:none;border-radius:7px;padding:10px 18px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 12px rgba(22,41,74,0.06);}
+  .btn-red{background:linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);color:#fff;}
+  .btn-red:hover{background:var(--red-dark);}
+  .btn-outline{background:#fff;border:1px solid var(--border);color:var(--ink);}
+  .btn-green{background:linear-gradient(135deg, var(--green-mid) 0%, var(--green) 100%);color:#fff;box-shadow:0 10px 18px rgba(30,94,63,0.14);}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:22px;}
+  .stat-card{background:linear-gradient(180deg,#ffffff 0%, #f9fbfa 100%);border:1px solid rgba(162,174,168,0.42);border-radius:10px;padding:18px 20px;box-shadow:0 10px 24px rgba(17,32,27,0.04);}
+  .stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+  .stat-top .label{font-size:12px;color:var(--muted);font-weight:600;}
+  .stat-top .icon{width:30px;height:30px;border-radius:8px;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .stat-val{font-size:21px;font-weight:800;}
+  .stat-note{font-size:11px;font-weight:700;margin-top:4px;}
+  .stat-note.tag{display:inline-block;padding:3px 9px;border-radius:12px;background:var(--green-bg);color:var(--green-text);}
+
+  .grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;}
+  .card{background:linear-gradient(180deg,#ffffff 0%, #fbfcfb 100%);border:1px solid rgba(162,174,168,0.42);border-radius:10px;padding:20px 22px;box-shadow:0 10px 24px rgba(17,32,27,0.04);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .card-head h3{font-size:15px;font-weight:800;}
+  .card-head a{font-size:12px;font-weight:700;color:var(--green-text);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:10.5px;letter-spacing:.3px;color:var(--muted);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700;}
+  td{padding:12px 10px;font-size:12.5px;border-bottom:1px solid var(--border);color:#354039;}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:10.5px;font-weight:700;}
+  .tag.blue{background:#e1e9fd;color:var(--blue);}
+  .tag.orange{background:var(--orange-bg);color:var(--orange-text);}
+  .tag.green{background:var(--green-bg);color:var(--green-text);}
+  .tag.gray{background:#eceeed;color:var(--muted);}
+  .tag .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .detail-link{color:var(--green-text);font-weight:700;}
+
+  .invoice-warn{background:#fdecec;border:1px solid #f6c9c9;border-radius:10px;padding:16px 18px;}
+  .invoice-warn .t{font-size:12.5px;font-weight:800;color:var(--red);margin-bottom:4px;}
+  .invoice-warn .amt{font-size:19px;font-weight:800;color:var(--red);margin:6px 0;}
+  .invoice-warn .due{font-size:11px;color:#a34848;margin-bottom:12px;}
+
+  .kas-mini{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .kas-mini .lbl{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;}
+  .kas-mini .val{font-size:18px;font-weight:800;}
+
+  .payment-row{display:flex;gap:10px;align-items:flex-start;margin:16px 0;font-size:12px;color:var(--muted);}
+  .payment-row .ic{width:30px;height:30px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .payment-row b{color:var(--ink);display:block;}
+
+  .filters{display:flex;gap:12px;margin-bottom:18px;align-items:center;}
+  input.input, select.input{border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 13px;font-size:12.5px;}
+  .spacer{flex:1;}
+  .pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px;font-size:12px;color:var(--muted);}
+  .pagination .pg{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;}
+  .pagination .pg.active{background:var(--green-mid);color:#fff;border-color:var(--green-mid);}
+
+  /* settings */
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1000px;}
+  .settings-col h3{font-size:14px;font-weight:800;margin-bottom:16px;}
+  .upload-row{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .upload-circle{width:52px;height:52px;border-radius:50%;background:var(--bg-soft);border:2px dashed #c7cec9;}
+  .upload-row .t{font-size:12.5px;font-weight:700;}
+  .upload-row .s{font-size:11px;color:var(--muted);}
+  .field2{margin-bottom:16px;}
+  .field2 label{display:block;font-size:12.5px;font-weight:700;margin-bottom:7px;}
+  .field2 input{width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;}
+  .field2 textarea{width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;font-family:inherit;resize:none;min-height:56px;}
+  .lock-field{display:flex;gap:8px;align-items:center;}
+  .lock-field input{background:#eceeed;color:var(--muted);}
+  .pw-row{display:flex;gap:10px;align-items:center;}
+  .pw-row input{flex:1;}
+  .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px;grid-column:1/-1;}
+
+  /* booking armada */
+  .booking-grid{display:grid;grid-template-columns:1.7fr 1fr;gap:20px;}
+  .section-h{font-size:12.5px;font-weight:800;color:var(--green-text);margin-bottom:14px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+  .unit-row{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;}
+  .unit-num{width:26px;height:26px;border-radius:6px;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
+  .unit-row .u1{flex:1;}
+  .unit-row .k{font-size:10.5px;color:var(--muted);font-weight:700;margin-bottom:3px;}
+  .unit-row .v{font-size:13px;font-weight:700;}
+  .unit-row .v2{font-size:11.5px;color:var(--muted);}
+  .unit-row .x{color:var(--red);font-weight:800;cursor:pointer;}
+  .add-unit{border:1.5px dashed var(--red);color:var(--red);background:#fff;border-radius:8px;padding:12px;text-align:center;font-weight:700;font-size:12.5px;width:100%;}
+  .est-row{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:10px;color:var(--muted);}
+  .est-row b{color:var(--ink);}
+  .est-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:14px;margin:14px 0 18px;}
+  .est-total .l{font-weight:700;font-size:13px;}
+  .est-total .v{font-weight:800;font-size:19px;color:var(--red);}
+
+  @media(max-width:900px){
+    .auth-visual{display:none;}
+    .auth-form-side{width:100%;}
+    .stat-grid,.grid-2,.settings-grid,.booking-grid,.two-col{grid-template-columns:1fr;}
+    .topnav{flex-wrap:wrap;gap:12px;padding:14px 18px;}
+    .tn-left{width:100%;flex-wrap:wrap;gap:12px;}
+    .tn-links{display:flex;flex-wrap:wrap;gap:8px 16px;}
+    .tn-right{margin-left:auto;}
+    .ppage{padding:22px 18px 50px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH: LOGIN ============ -->
+<div class="auth-page active" id="auth-login">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🛡️</span><span>CuciMesin | B2B<span class="sub">Portal</span></span></div>
+    <div class="auth-headline">
+      <h1>Mitra Terpercaya<br>Showroom Anda</h1>
+      <p>Kelola armada, pantau invoice, dan dapatkan prioritas layanan engine detailing langsung dari dashboard ini.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" type="button" onclick="window.location.href='/booking.html'">KEMBALI</button>
+    <div class="auth-form">
+      <h2>Selamat Datang</h2>
+      <p>Masuk untuk melihat riwayat dan garansi kendaraan.</p>
+      <div class="seg-tabs">
+        <button type="button" onclick="window.location.href='/pelanggan-portal.html'">Pelanggan reguler</button>
+        <button class="active" type="button" aria-current="page">Member</button>
+      </div>
+      <div class="field"><label>Email Bisnis / ID Kemitraan</label><input id="loginIdentifier" type="text" placeholder="showroom@email.com"></div>
+      <div class="field-link"><label style="margin:0;">Kata Sandi / PIN</label><a href="https://wa.me/6281234567890?text=Halo%2C%20saya%20perlu%20bantuan%20akses%20akun%20mitra." target="_blank" rel="noopener noreferrer">Lupa?</a></div>
+      <div class="field" style="margin-top:-9px;"><input id="loginPassword" type="password" placeholder="Masukkan kata sandi"></div>
+      <button class="btn-auth green" onclick="login()">Masuk Akun</button>
+      <div class="auth-foot">Belum punya Member? <a href="#" onclick="showAuth('auth-register')">Daftar Sekarang</a></div>
+    </div>
+  </div>
+  <div id="portalError" role="status" aria-live="polite" style="display:none;max-width:1200px;margin:14px auto 0;padding:10px 16px;border:1px solid #f6c9c9;border-radius:8px;background:#fdecec;color:var(--red);font-weight:700;"></div>
+</div>
+
+<!-- ============ AUTH: REGISTER ============ -->
+<div class="auth-page" id="auth-register">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🛡️</span><span>CuciMesin | B2B<span class="sub">Portal</span></span></div>
+    <div class="auth-headline">
+      <h1>Kembangkan Bisnis<br>Bersama Kami</h1>
+      <p>Jadilah mitra resmi dan nikmati tarif khusus (diskon B2B), prioritas layanan, serta sistem penagihan invoice yang rapi.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <h2>Pendaftaran Mitra B2B</h2>
+      <p>Lengkapi profil bisnis Anda untuk bergabung dalam jaringan kami.</p>
+      <div class="field"><label>Nama Showroom / Bengkel</label><input id="registerShowroom" type="text" placeholder="Contoh: AutoMaju Motor..."></div>
+      <div class="field"><label>Nama Penanggung Jawab (PIC)</label><input id="registerPic" type="text" placeholder="Masukkan nama PIC..."></div>
+      <div class="field"><label>Nomor WhatsApp PIC</label>
+        <div class="phone-input"><div class="cc">+62</div><input id="registerTelepon" type="text" placeholder="81234567890"></div>
+      </div>
+      <div class="field"><label>Email Bisnis</label><input id="registerEmail" type="text" placeholder="alamat@email.com"></div>
+      <div class="field"><label>Kata Sandi Akses Portal</label><input id="registerPassword" type="password" minlength="8" placeholder="Minimal 8 karakter..."></div>
+      <div class="check-row"><input id="registerTerms" type="checkbox"><span>Saya menyetujui <b>MoU &amp; Syarat Kemitraan</b> yang berlaku.</span></div>
+      <button class="btn-auth red" onclick="register()">Ajukan Kemitraan</button>
+      <div class="auth-foot">Sudah terdaftar menjadi mitra? <a href="#" onclick="showAuth('auth-login')">Masuk di sini</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH: FORGOT PASSWORD ============ -->
+<div class="auth-page" id="auth-forgot">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🛡️</span><span>CuciMesin | B2B<span class="sub">Portal</span></span></div>
+    <div class="auth-headline">
+      <h1>Keamanan Akses<br>Portal Kemitraan</h1>
+      <p>Kami melindungi data operasional dan invoice showroom Anda. Gunakan email bisnis yang terdaftar untuk memulihkan akses ke dalam dashboard manajemen B2B.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <div style="font-size:22px;margin-bottom:8px;">🔒</div>
+      <h2>Lupa Kata Sandi B2B?</h2>
+      <p>Pemulihan sandi otomatis belum tersedia. Hubungi tim CuciMesin melalui WhatsApp agar identitas mitra dapat diverifikasi terlebih dahulu.</p>
+      <a class="btn-auth red" style="display:block;text-align:center;text-decoration:none;" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mitra%20CuciMesin%20perlu%20bantuan%20reset%20password." target="_blank" rel="noopener noreferrer">Hubungi Bantuan WhatsApp</a>
+      <div class="auth-foot">Ingat kata sandi Anda? <a href="#" onclick="showAuth('auth-login')">Kembali ke Masuk</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH: RESET PASSWORD ============ -->
+<div class="auth-page" id="auth-reset">
+  <div class="auth-visual">
+    <div class="auth-brand"><span class="ic">🛡️</span><span>CuciMesin | B2B<span class="sub">Portal</span></span></div>
+    <div class="auth-headline">
+      <h1>Pemulihan Akses<br>Portal Kemitraan</h1>
+      <p>Reset sandi mandiri belum tersedia. Hubungi tim CuciMesin untuk memulihkan akses secara aman.</p>
+    </div>
+    <div></div>
+  </div>
+  <div class="auth-form-side">
+    <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
+    <div class="auth-form">
+      <div style="font-size:20px;margin-bottom:8px;">🔑</div>
+      <h2>Bantuan Reset Sandi</h2>
+      <p>Admin akan memverifikasi akun mitra sebelum membantu pemulihan akses.</p>
+      <a class="btn-auth red" style="display:block;text-align:center;text-decoration:none;" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mitra%20CuciMesin%20perlu%20bantuan%20reset%20password." target="_blank" rel="noopener noreferrer">Hubungi Bantuan WhatsApp</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PORTAL APP ============ -->
+<div id="portal-app">
+  <div class="topnav">
+    <div class="tn-left">
+      <div class="tn-brand"><span class="ic">🛡️</span><span>CuciMesin |<span class="tag">B2B Portal</span></span></div>
+      <div class="tn-links">
+        <button class="active" onclick="showP('dashboard', this)">Dashboard</button>
+        <button onclick="showP('antrean', this)">Antrean Armada</button>
+        <button onclick="showP('tagihan', this)">Tagihan &amp; Invoice</button>
+        <button onclick="showP('pengaturan', this)">Pengaturan Mitra</button>
+      </div>
+    </div>
+    <div class="tn-right">
+      <span id="portalUserName">AutoMaju Motor Tuban</span>
+      <div id="portalUserAvatar" class="tn-avatar">AM</div>
+      <button class="tn-logout" type="button" onclick="logoutMitra()">Keluar</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD KEMITRAAN -->
+  <div class="ppage active" id="p-dashboard">
+    <div class="ppage-head">
+      <div><h1>Dashboard Kemitraan</h1><div class="sub">Pantau efisiensi operasional armada showroom dan kelola tagihan kolektif Anda.</div></div>
+      <button class="btn btn-red" onclick="showP('booking', document.querySelectorAll('.tn-links button')[1])">+ Booking Armada</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-top"><span class="label">Total Cuci (Bulan Ini)</span><span class="icon">🚗</span></div><div id="mitraTotalCuci" class="stat-val">24 Unit</div></div>
+      <div class="stat-card"><div class="stat-top"><span class="label">Tagihan Belum Dibayar</span><span class="icon">Rp</span></div><div id="mitraTagihan" class="stat-val">Rp 1.450k</div></div>
+      <div class="stat-card"><div class="stat-top"><span class="label">Selesai (30 Hari)</span><span class="icon">✓</span></div><div id="mitraSelesai30Hari" class="stat-val">0 Kendaraan</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h3>Status Pengerjaan Armada</h3><a href="#" onclick="showP('antrean', document.querySelectorAll('.tn-links button')[1])">Lihat Semua</a></div>
+        <table>
+          <thead><tr><th>Kendaraan &amp; Plat</th><th>Layanan</th><th>Status</th></tr></thead>
+          <tbody id="dashboardFleetRows"><tr><td colspan="3">Memuat status armada...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Tagihan (Invoice)</h3><a href="#" onclick="showP('tagihan', document.querySelectorAll('.tn-links button')[2])">Riwayat</a></div>
+        <div class="invoice-warn" id="latestInvoiceCard">
+          <div class="t"><span id="latestInvoiceNumber">Belum ada invoice</span> <span id="latestInvoiceStatus" style="float:right;"></span></div>
+          <div id="latestInvoicePeriod" style="font-size:11px;color:#a34848;">Belum ada periode tagihan.</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;">Total Tagihan (Diskon 15%)</div>
+          <div class="amt" id="latestInvoiceTotal">Rp 0</div>
+        </div>
+        <div class="payment-row">
+          <div class="ic">🏦</div>
+          <div><b>Pembayaran Transfer</b>BCA 1234567890 (CuciMesin Tuban)</div>
+        </div>
+        <button id="confirmPaymentBtn" class="btn btn-red" style="width:100%;" onclick="payLatestInvoice()">Konfirmasi Pembayaran</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANTREAN ARMADA -->
+  <div class="ppage" id="p-antrean">
+    <div class="ppage-head">
+      <div><h1>Manajemen Antrean Armada</h1><div class="sub">Pantau jadwal dan status pengerjaan seluruh unit kendaraan dari showroom Anda.</div></div>
+      <button class="btn btn-red" onclick="showP('booking', document.querySelectorAll('.tn-links button')[1])">+ Booking Armada</button>
+    </div>
+    <div class="filters">
+      <input id="fleetSearch" class="input" placeholder="Cari unit kendaraan atau plat nomor..." style="flex:1;max-width:320px;" oninput="renderFleetRows(mitraArmada, mitraJobs)">
+      <select id="fleetStatusFilter" class="input" onchange="renderFleetRows(mitraArmada, mitraJobs)"><option value="">Status: Semua</option><option value="Dikerjakan">Sedang Dikerjakan</option><option value="Menunggu">Antrean</option><option value="Selesai">Selesai</option><option value="Belum ada SPK">Belum ada SPK</option><option value="Nonaktif">Nonaktif</option></select>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-head"><h3>Tambah Unit Armada</h3></div>
+      <div class="two-col" style="margin-bottom:0;">
+        <div class="field2"><label>Plat Nomor</label><input id="newArmadaPlat" class="input" type="text" placeholder="S 1234 AB"></div>
+        <div class="field2"><label>Merk / Tipe</label><input id="newArmadaMerk" class="input" type="text" placeholder="Toyota Avanza"></div>
+        <div class="field2"><label>Tahun</label><input id="newArmadaTahun" class="input" type="text" placeholder="2024"></div>
+        <div class="field2"><label>Warna</label><input id="newArmadaWarna" class="input" type="text" placeholder="Hitam"></div>
+      </div>
+      <button class="btn btn-green" type="button" onclick="addArmada()">Simpan Unit Armada</button>
+      <div id="armadaMessage" style="min-height:18px;margin-top:8px;font-size:12px;font-weight:700;"></div>
+    </div>
+    <div class="card" style="padding:0;">
+      <table>
+        <thead><tr><th>Kendaraan &amp; Plat</th><th>Paket Layanan</th><th>Jadwal / Waktu</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody id="fleetRows"><tr><td colspan="4">Memuat armada...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card" style="padding:0;margin-top:18px;">
+      <div class="card-head" style="padding:18px 22px 0;"><h3>Booking Armada Terbaru</h3></div>
+      <table>
+        <thead><tr><th>Unit</th><th>Layanan</th><th>Jadwal</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody id="fleetBookingRows"><tr><td colspan="5">Memuat booking...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAGIHAN & INVOICE -->
+  <div class="ppage" id="p-tagihan">
+    <div class="ppage-head">
+      <div><h1>Tagihan &amp; Invoice</h1><div class="sub">Pantau pembayaran tagihan kolektif dan riwayat invoice showroom Anda.</div></div>
+      <button class="btn btn-outline" type="button" onclick="loadInvoices(localStorage.getItem(TOKEN_KEY)).catch(error => { document.getElementById('invoiceLoadError').textContent = error.message || 'Gagal memuat invoice.'; })">Refresh Invoice</button>
+    </div>
+    <div id="invoiceLoadError" class="report-error" role="status" aria-live="polite"></div>
+    <div class="stat-grid">
+      <div class="kas-mini" style="border-color:#f6c9c9;background:#fdecec;"><div class="lbl" style="color:var(--red);">⚠ Total Belum Dibayar</div><div id="unpaidTotal" class="val" style="color:var(--red);">Rp 0</div><div id="unpaidDue" style="font-size:10.5px;color:#a34848;margin-top:4px;">Tidak ada tagihan jatuh tempo.</div><button class="btn btn-red" style="width:100%;margin-top:12px;" onclick="payLatestInvoice()">Bayar Sekarang</button></div>
+      <div class="kas-mini"><div class="lbl">✅ Total Tagihan Lunas</div><div id="paidTotal" class="val">Rp 0</div></div>
+      <div class="kas-mini"><div class="lbl">📄 Total Unit pada Invoice</div><div id="invoicedUnits" class="val">0 Kendaraan</div></div>
+    </div>
+    <div class="card" style="padding:0;">
+      <table>
+        <thead><tr><th>No. Invoice / Periode</th><th>Total Kendaraan</th><th>Nominal Tagihan</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody id="invoiceRows">
+          <tr><td colspan="5">Memuat invoice...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PENGATURAN KEMITRAAN -->
+  <div class="ppage" id="p-pengaturan">
+    <div class="ppage-head"><div><h1>Pengaturan Kemitraan</h1><div class="sub">Kelola informasi profil showroom, kontak penanggung jawab (PIC), dan keamanan akun Anda.</div></div></div>
+    <div class="settings-grid">
+      <div class="settings-col">
+        <h3>Profil Showroom / Bengkel</h3>
+        <div class="upload-row"><div class="upload-circle"></div><div><div class="t">Logo Showroom</div><div class="s">Pengunggahan logo belum tersedia.</div></div></div>
+        <div class="field2"><label>Nama Showroom</label><input id="mitraNamaShowroom" type="text" value=""></div>
+        <div class="field2"><label>Alamat Lengkap</label><textarea id="mitraAlamat"></textarea></div>
+        <div class="field2"><label>Telepon Bisnis (Kantor)</label><input id="mitraTelepon" type="text" value=""></div>
+      </div>
+      <div class="settings-col">
+        <h3>Data Penanggung Jawab &amp; Akun</h3>
+        <div class="field2"><label>Nama Lengkap PIC</label><input id="mitraPicNama" type="text" value=""></div>
+        <div class="field2"><label>Email Terdaftar (ID Kemitraan)</label>
+          <div class="lock-field"><input id="mitraEmail" type="text" value="" disabled style="flex:1;"><span>🔒</span></div>
+        </div>
+        <div class="field2"><label>Nomor WhatsApp PIC</label><input id="mitraPicTelepon" type="text" value=""></div>
+        <div class="field2"><label>Ganti Kata Sandi Baru</label>
+          <div class="pw-row"><input id="oldPassword" type="password" placeholder="Password lama"><input id="newPassword" type="password" placeholder="Password baru"><button class="btn btn-green" style="white-space:nowrap;" onclick="updateMitraPassword()">Perbarui Sandi</button></div>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn btn-outline" onclick="showP('dashboard', document.querySelector('.tn-links button'))">Batal</button><button class="btn btn-red" onclick="saveMitraProfile()">Simpan Perubahan</button></div>
+    </div>
+  </div>
+
+  <!-- BUAT JADWAL BOOKING ARMADA -->
+  <div class="ppage" id="p-booking">
+    <div class="crumb">Dashboard / Antrean Armada / <b>Booking Massal</b></div>
+    <div class="ppage-head"><div><h1>Buat Jadwal Booking Armada</h1><div class="sub">Daftarkan hingga 10 unit kendaraan sekaligus untuk efisiensi waktu operasional showroom Anda.</div></div></div>
+    <div class="booking-grid">
+      <div>
+        <div class="section-h">1. Rencana Waktu Kedatangan</div>
+        <div class="two-col">
+          <div class="field2" style="margin-bottom:0;"><label>Tanggal</label><input id="fleetBookingDate" type="date"></div>
+          <div class="field2" style="margin-bottom:0;"><label>Jam</label><input id="fleetBookingTime" type="time" value="09:00"></div>
+        </div>
+        <div class="section-h" style="display:flex;justify-content:space-between;">2. Daftar Unit Kendaraan <span id="fleetUnitCount" style="color:var(--muted);font-weight:600;">0 Unit Terdaftar</span></div>
+        <div id="fleetSelection"><div class="unit-row"><div class="u1">Memuat armada...</div></div></div>
+        <button class="btn btn-outline" type="button" onclick="showP('antrean', document.querySelectorAll('.tn-links button')[1])">Kelola Armada</button>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:800;margin-bottom:16px;">Ringkasan Estimasi</h3>
+        <div class="est-row"><span id="estimateSubtotalLabel">Subtotal (0 Unit)</span><b id="estimateSubtotal">Rp 0</b></div>
+        <div class="est-row"><span>Benefit Kemitraan</span><b id="estimateDiscount" style="color:var(--green-text);">Diskon - Rp 0</b></div>
+        <div class="est-total"><span class="l">Total Estimasi</span><span id="estimateTotal" class="v">Rp 0</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">+ Tagihan akan masuk ke invoice bulanan</div>
+        <label class="field2" style="display:block;margin-top:16px;"><span class="section-h">3. Paket Layanan</span><select id="fleetBookingService" class="input" style="width:100%;" onchange="updateBookingEstimate()"><option value="">Memuat layanan...</option></select></label>
+        <textarea id="fleetBookingNote" class="field2" placeholder="Catatan booking (opsional)" style="width:100%;min-height:70px;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;"></textarea>
+        <button class="btn btn-red" style="width:100%;" onclick="submitFleetBooking()">Kirim Permintaan Booking</button>
+        <div id="fleetBookingMessage" style="min-height:20px;margin-top:10px;font-size:12px;font-weight:700;"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const TOKEN_KEY = 'cucimesin_mitra_token';
+const USER_KEY = 'cucimesin_mitra_user';
+let mitraArmada = [];
+let mitraServices = [];
+let mitraJobs = [];
+let mitraProfile = null;
+
+function showAuth(id){
+  document.querySelectorAll('.auth-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function normalizeIdentifier(value){
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw.toLowerCase();
+  return raw;
+}
+
+function updatePortalUser(user){
+  const nameEl = document.getElementById('portalUserName');
+  const avatarEl = document.getElementById('portalUserAvatar');
+
+  if (!user) return;
+
+  if (nameEl) nameEl.textContent = user.nama || 'Mitra';
+  if (avatarEl) {
+    const initials = (user.nama || 'M')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
+    avatarEl.textContent = initials || 'M';
+  }
+}
+
+function formatCurrency(value){
+  const num = Number(value || 0);
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
+}
+
+function mitraHeaders(extra = {}){
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function populateDashboard(data){
+  const totalEl = document.getElementById('mitraTotalCuci');
+  const tagihanEl = document.getElementById('mitraTagihan');
+  const completedEl = document.getElementById('mitraSelesai30Hari');
+
+  if (totalEl) totalEl.textContent = `${Number(data.total_cuci_bulan_ini || 0)} Unit`;
+  if (tagihanEl) tagihanEl.textContent = formatCurrency(data.tagihan_belum_dibayar || 0);
+  if (completedEl) completedEl.textContent = `${Number(data.kendaraan_selesai_30_hari || 0)} Kendaraan`;
+}
+
+function enterPortal(){
+  document.querySelectorAll('.auth-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('portal-app').classList.add('active');
+}
+
+function formatCurrency(value){
+  return `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+async function loadInvoices(token){
+  const response = await fetch('/api/mitra/me/invoices', { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error('Gagal memuat invoice mitra');
+  const invoices = await response.json();
+  const rows = document.getElementById('invoiceRows');
+  const unpaid = invoices.filter(invoice => invoice.status !== 'Lunas');
+  const paid = invoices.filter(invoice => invoice.status === 'Lunas');
+  const unpaidTotal = document.getElementById('unpaidTotal');
+  const unpaidDue = document.getElementById('unpaidDue');
+  const paidTotal = document.getElementById('paidTotal');
+  const invoicedUnits = document.getElementById('invoicedUnits');
+  if (unpaidTotal) unpaidTotal.textContent = formatCurrency(unpaid.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0));
+  if (unpaidDue) unpaidDue.textContent = unpaid[0]?.jatuh_tempo ? `Jatuh tempo: ${unpaid[0].jatuh_tempo}` : 'Tidak ada tagihan jatuh tempo.';
+  if (paidTotal) paidTotal.textContent = formatCurrency(paid.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0));
+  if (invoicedUnits) invoicedUnits.textContent = `${invoices.reduce((sum, invoice) => sum + Number(invoice.total_unit || 0), 0)} Kendaraan`;
+  window.mitraInvoices = invoices;
+  if (rows) rows.innerHTML = invoices.length ? invoices.map(invoice => `
+    <tr><td><b>${escapeHtml(invoice.no_invoice)}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(invoice.periode_mulai || '-')} - ${escapeHtml(invoice.periode_selesai || '-')}</span></td>
+    <td>${Number(invoice.total_unit || 0)} Unit</td><td>${formatCurrency(invoice.total)}</td>
+    <td><span class="tag ${invoice.status === 'Lunas' ? 'green' : ''}" style="${invoice.status === 'Lunas' ? '' : 'background:#fdecec;color:var(--red);'}">${escapeHtml(invoice.status)}</span></td>
+    <td><button class="btn btn-outline" type="button" onclick="downloadInvoice(${Number(invoice.id)})">Download PDF</button>
+    ${invoice.status === 'Lunas' ? '<span class="tag green">Terverifikasi</span>' : `<button class="btn btn-red" type="button" onclick="payInvoice(${Number(invoice.id)})">Bayar Sekarang</button>`}</td></tr>
+  `).join('') : '<tr><td colspan="5">Belum ada invoice.</td></tr>';
+}
+
+async function downloadInvoice(invoiceId){
+  const errorEl = document.getElementById('invoiceLoadError');
+  if (errorEl) errorEl.textContent = '';
+  try {
+    const response = await fetch(`/api/mitra/me/invoices/${encodeURIComponent(invoiceId)}/pdf`, {
+      headers: mitraHeaders()
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Gagal mengunduh invoice.');
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || `Invoice-${invoiceId}.pdf`;
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (error) {
+    if (errorEl) errorEl.textContent = error.message || 'Gagal mengunduh invoice.';
+  }
+}
+
+function renderFleetRows(rows){
+  const dashboardRows = document.getElementById('dashboardFleetRows');
+  const fleetRows = document.getElementById('fleetRows');
+  const html = rows.length ? rows.map(row => `<tr><td><b>${escapeHtml(row.merk_tipe || 'Kendaraan')}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(row.plat_nomor)}</span></td><td>-</td><td>-</td><td><span class="tag ${row.aktif ? 'green' : 'gray'}"><span class="dot"></span>${row.aktif ? 'Aktif' : 'Nonaktif'}</span></td></tr>`).join('') : '<tr><td colspan="4">Belum ada armada terdaftar.</td></tr>';
+  if (dashboardRows) dashboardRows.innerHTML = rows.slice(0, 3).map(row => `<tr><td><b>${escapeHtml(row.merk_tipe || 'Kendaraan')}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(row.plat_nomor)}</span></td><td>-</td><td><span class="tag ${row.aktif ? 'green' : 'gray'}"><span class="dot"></span>${row.aktif ? 'Aktif' : 'Nonaktif'}</span></td></tr>`).join('') || '<tr><td colspan="3">Belum ada armada.</td></tr>';
+  if (fleetRows) fleetRows.innerHTML = html;
+  renderFleetSelection(rows);
+}
+
+function renderFleetSelection(rows){
+  const container = document.getElementById('fleetSelection');
+  const count = document.getElementById('fleetUnitCount');
+  if (!container) return;
+  const activeRows = rows.filter(row => row.aktif);
+  if (count) count.textContent = `${activeRows.length} Unit Aktif`;
+  container.innerHTML = activeRows.map((row, index) => `<label class="unit-row" style="cursor:pointer;"><input class="fleet-check" type="checkbox" value="${row.id}" onchange="updateFleetCount()"><div class="unit-num">${index + 1}</div><div class="u1"><div class="k">PLAT NOMOR &amp; KENDARAAN</div><div class="v">${escapeHtml(row.plat_nomor)} - ${escapeHtml(row.merk_tipe || 'Kendaraan')}</div></div></label>`).join('') || '<div class="unit-row"><div class="u1">Tambahkan armada aktif terlebih dahulu.</div></div>';
+}
+
+function updateFleetCount(){
+  const selected = document.querySelectorAll('.fleet-check:checked').length;
+  const count = document.getElementById('fleetUnitCount');
+  if (count) count.textContent = `${selected} Unit Dipilih`;
+}
+
+async function addArmada(){
+  const message = document.getElementById('armadaMessage');
+  const payload = {
+    plat_nomor: document.getElementById('newArmadaPlat')?.value.trim() || '',
+    merk_tipe: document.getElementById('newArmadaMerk')?.value.trim() || '',
+    tahun: document.getElementById('newArmadaTahun')?.value.trim() || '',
+    warna: document.getElementById('newArmadaWarna')?.value.trim() || ''
+  };
+  if (!payload.plat_nomor) { if (message) message.textContent = 'Plat nomor wajib diisi.'; return; }
+  try {
+    const response = await fetch('/api/mitra/me/armada', { method: 'POST', headers: mitraHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal menambah armada');
+    ['newArmadaPlat', 'newArmadaMerk', 'newArmadaTahun', 'newArmadaWarna'].forEach(id => { const field = document.getElementById(id); if (field) field.value = ''; });
+    if (message) message.textContent = 'Unit armada berhasil ditambahkan.';
+    await loadFleetData(localStorage.getItem(TOKEN_KEY));
+  } catch (error) { if (message) message.textContent = error.message || 'Gagal menambah armada'; }
+}
+
+async function loadFleetData(token){
+  const [armadaResponse, serviceResponse, bookingResponse] = await Promise.all([
+    fetch('/api/mitra/me/armada', { headers: mitraHeaders() }),
+    fetch('/api/layanan'),
+    fetch('/api/mitra/me/bookings', { headers: mitraHeaders() })
+  ]);
+  if (!armadaResponse.ok || !serviceResponse.ok || !bookingResponse.ok) throw new Error('Gagal memuat data armada mitra');
+  mitraArmada = await armadaResponse.json();
+  mitraServices = await serviceResponse.json();
+  const bookings = await bookingResponse.json();
+  renderFleetRows(mitraArmada);
+  const select = document.getElementById('fleetBookingService');
+  if (select) select.innerHTML = '<option value="">Pilih layanan...</option>' + mitraServices.filter(item => item.aktif !== 0).map(item => `<option value="${item.id}">${escapeHtml(item.nama)} - ${formatCurrency(item.harga)}</option>`).join('');
+  const bookingRows = document.getElementById('fleetBookingRows');
+  if (bookingRows) bookingRows.innerHTML = bookings.length ? bookings.map(booking => `
+    <tr>
+      <td>${Number(booking.total_unit || 0)} unit</td>
+      <td>${escapeHtml(booking.layanan_nama)}</td>
+      <td>${escapeHtml(booking.tanggal)}<br>${escapeHtml(booking.waktu)}</td>
+      <td><span class="tag ${booking.status === 'Batal' ? 'gray' : booking.status === 'Dikonversi' ? 'green' : ''}">${escapeHtml(booking.status)}</span></td>
+      <td>${['Baru', 'Diproses'].includes(booking.status)
+        ? `<button class="btn btn-outline" type="button" onclick="cancelFleetBooking(${Number(booking.id)}, this)">Batalkan Booking</button>`
+        : '—'}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="5">Belum ada booking armada.</td></tr>';
+}
+
+async function cancelFleetBooking(bookingId, button){
+  if (!confirm('Batalkan booking armada ini? Booking yang sudah dibatalkan tidak dapat dipulihkan.')) return;
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`/api/mitra/me/bookings/${encodeURIComponent(bookingId)}/status`, {
+      method: 'PATCH',
+      headers: mitraHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ status: 'Batal' })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal membatalkan booking armada');
+    await loadFleetData(localStorage.getItem(TOKEN_KEY));
+  } catch (error) {
+    if (button) button.disabled = false;
+    alert(error.message || 'Gagal membatalkan booking armada.');
+  }
+}
+
+async function submitFleetBooking(){
+  const message = document.getElementById('fleetBookingMessage');
+  const armada_ids = Array.from(document.querySelectorAll('.fleet-check:checked')).map(input => Number(input.value));
+  const payload = { layanan_id: Number(document.getElementById('fleetBookingService')?.value || 0), armada_ids, tanggal: document.getElementById('fleetBookingDate')?.value || '', waktu: document.getElementById('fleetBookingTime')?.value || '', catatan: document.getElementById('fleetBookingNote')?.value.trim() || '' };
+  if (!payload.layanan_id || !payload.armada_ids.length || !payload.tanggal || !payload.waktu) { if (message) message.textContent = 'Pilih layanan, tanggal, waktu, dan minimal satu armada.'; return; }
+  try {
+    const response = await fetch('/api/mitra/me/bookings', { method: 'POST', headers: mitraHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Booking armada gagal');
+    if (message) message.textContent = `Booking armada #${data.id} berhasil dikirim.`;
+    document.querySelectorAll('.fleet-check').forEach(input => { input.checked = false; });
+    updateFleetCount();
+    await loadFleetData(localStorage.getItem(TOKEN_KEY));
+  } catch (error) { if (message) message.textContent = error.message || 'Booking armada gagal'; }
+}
+
+async function payInvoice(invoiceId){
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+  if (!confirm('Konfirmasi bahwa invoice ini sudah dibayar melalui transfer?')) return;
+  const response = await fetch(`/api/mitra/me/invoices/${invoiceId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const data = await response.json();
+  if (!response.ok) return alert(data.error || 'Pembayaran gagal');
+  alert('Pembayaran invoice berhasil dikonfirmasi.');
+  await loadInvoices(token);
+}
+
+function payLatestInvoice(){
+  const invoice = (window.mitraInvoices || []).find(item => item.status !== 'Lunas');
+  if (!invoice) return alert('Tidak ada invoice yang belum dibayar.');
+  payInvoice(invoice.id);
+}
+
+async function saveMitraProfile(){
+  const token = localStorage.getItem(TOKEN_KEY);
+  const response = await fetch('/api/mitra/me/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      nama_showroom: document.getElementById('mitraNamaShowroom').value.trim(),
+      alamat: document.getElementById('mitraAlamat').value.trim(),
+      telepon: document.getElementById('mitraTelepon').value.trim(),
+      pic_nama: document.getElementById('mitraPicNama').value.trim(),
+      pic_telepon: document.getElementById('mitraPicTelepon').value.trim()
+    })
+  });
+  const data = await response.json();
+  alert(response.ok ? data.message : (data.error || 'Profil gagal disimpan'));
+}
+
+async function updateMitraPassword(){
+  const token = localStorage.getItem(TOKEN_KEY);
+  const response = await fetch('/api/mitra/me/password', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ password_lama: document.getElementById('oldPassword').value, password_baru: document.getElementById('newPassword').value })
+  });
+  const data = await response.json();
+  alert(response.ok ? data.message : (data.error || 'Password gagal diperbarui'));
+}
+
+function showP(id, el){
+  document.querySelectorAll('.ppage').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('active');
+  document.querySelectorAll('.tn-links button').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(id === 'tagihan') loadInvoices(localStorage.getItem(TOKEN_KEY)).catch(error => {
+    const errorEl = document.getElementById('invoiceLoadError');
+    if (errorEl) errorEl.textContent = error.message || 'Gagal memuat invoice.';
+  });
+}
+
+async function register(){
+  const nama_showroom = document.getElementById('registerShowroom')?.value.trim() || '';
+  const pic_nama = document.getElementById('registerPic')?.value.trim() || '';
+  const telepon = normalizeIdentifier(document.getElementById('registerTelepon')?.value || '');
+  const email = document.getElementById('registerEmail')?.value.trim() || '';
+  const password = document.getElementById('registerPassword')?.value || '';
+
+  if (!nama_showroom || !pic_nama || !telepon || !email || !password) {
+    alert('Lengkapi semua data pendaftaran mitra.');
+    return;
+  }
+
+  if (password.length < 8) {
+    alert('Password minimal 8 karakter.');
+    return;
+  }
+  if (!document.getElementById('registerTerms')?.checked) {
+    alert('Setujui MoU dan syarat kemitraan untuk melanjutkan.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/mitra/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama_showroom, pic_nama, telepon, email, password })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Registrasi mitra gagal');
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    updatePortalUser(data.user);
+    enterPortal();
+    await loadDashboardData(data.token);
+  } catch (error) {
+    alert(error.message || 'Registrasi mitra gagal');
+  }
+}
+
+async function login(){
+  const identifier = normalizeIdentifier(document.getElementById('loginIdentifier')?.value || '');
+  const password = document.getElementById('loginPassword')?.value || '';
+
+  if (!identifier || !password) {
+    alert('Masukkan email bisnis atau ID kemitraan serta password Anda.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password, role: 'mitra' })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Login mitra gagal');
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    updatePortalUser(data.user);
+    enterPortal();
+    await loadDashboardData(data.token);
+  } catch (error) {
+    alert(error.message || 'Login mitra gagal');
+  }
+}
+
+async function loadDashboardData(token){
+  try {
+    const response = await fetch('/api/mitra/me/dashboard', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('Gagal memuat dashboard mitra');
+    }
+
+    const data = await response.json();
+    populateDashboard(data);
+    await Promise.all([loadInvoices(token), loadFleetData(token)]);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function loadProfile(){
+  const response = await fetch('/api/mitra/me/profile', { headers: mitraHeaders() });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Gagal memuat profil mitra');
+  mitraProfile = data;
+  document.getElementById('mitraNamaShowroom').value = data.nama_showroom || '';
+  document.getElementById('mitraAlamat').value = data.alamat || '';
+  document.getElementById('mitraTelepon').value = data.telepon || '';
+  document.getElementById('mitraPicNama').value = data.pic_nama || '';
+  document.getElementById('mitraPicTelepon').value = data.pic_telepon || '';
+  document.getElementById('mitraEmail').value = data.email || '';
+  const user = JSON.parse(localStorage.getItem(USER_KEY) || '{}');
+  updatePortalUser({ ...user, nama: data.nama_showroom || data.user_nama || user.nama });
+  updateBookingEstimate();
+}
+
+async function loadInvoices(token){
+  const response = await fetch('/api/mitra/me/invoices', { headers: mitraHeaders() });
+  const invoices = await response.json();
+  if (!response.ok) throw new Error(invoices.error || 'Gagal memuat invoice mitra');
+  const unpaid = invoices.filter(invoice => invoice.status !== 'Lunas');
+  const actionableInvoices = unpaid.filter(invoice => invoice.payment_action !== 'payment_reported');
+  const unpaidTotal = document.getElementById('unpaidTotal');
+  const unpaidDue = document.getElementById('unpaidDue');
+  if (unpaidTotal) unpaidTotal.textContent = formatCurrency(unpaid.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0));
+  if (unpaidDue) unpaidDue.textContent = unpaid[0]?.jatuh_tempo ? `Jatuh tempo: ${unpaid[0].jatuh_tempo}` : 'Tidak ada tagihan jatuh tempo.';
+  const paidTotal = invoices.filter(invoice => invoice.status === 'Lunas').reduce((sum, invoice) => sum + Number(invoice.total || 0), 0);
+  const paidTotalEl = document.getElementById('paidTotal');
+  const invoicedUnitsEl = document.getElementById('invoicedUnits');
+  if (paidTotalEl) paidTotalEl.textContent = formatCurrency(paidTotal);
+  if (invoicedUnitsEl) invoicedUnitsEl.textContent = `${invoices.reduce((sum, invoice) => sum + Number(invoice.total_unit || 0), 0)} Kendaraan`;
+  const latest = invoices[0];
+  document.getElementById('latestInvoiceNumber').textContent = latest?.no_invoice || 'Belum ada invoice';
+  document.getElementById('latestInvoiceStatus').textContent = latest?.payment_action === 'payment_reported' ? 'Menunggu Verifikasi' : latest?.status || '';
+  document.getElementById('latestInvoicePeriod').textContent = latest
+    ? `Periode: ${latest.periode_mulai || '-'} - ${latest.periode_selesai || '-'}`
+    : 'Belum ada periode tagihan.';
+  document.getElementById('latestInvoiceTotal').textContent = formatCurrency(latest?.total);
+  const paymentButton = document.getElementById('confirmPaymentBtn');
+  if (paymentButton) paymentButton.disabled = !actionableInvoices.length;
+  window.mitraInvoices = invoices;
+  const rows = document.getElementById('invoiceRows');
+  if (rows) rows.innerHTML = invoices.length ? invoices.map(invoice => `
+    <tr><td><b>${escapeHtml(invoice.no_invoice)}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(invoice.periode_mulai || '-')} - ${escapeHtml(invoice.periode_selesai || '-')}</span></td>
+    <td>${Number(invoice.total_unit || 0)} Unit</td><td>${formatCurrency(invoice.total)}</td>
+    <td><span class="tag ${invoice.status === 'Lunas' ? 'green' : ''}" style="${invoice.status === 'Lunas' ? '' : 'background:#fdecec;color:var(--red);'}">${escapeHtml(invoice.status)}</span></td>
+    <td><button class="btn btn-outline" type="button" onclick="downloadInvoice(${Number(invoice.id)})">Download PDF</button>
+    ${invoice.status === 'Lunas' ? '<span class="tag green">Terverifikasi</span>' : invoice.payment_action === 'payment_reported' ? '<span class="tag orange">Menunggu Verifikasi Admin</span>' : `<button class="btn btn-red" type="button" onclick="payInvoice(${Number(invoice.id)})">Saya Sudah Transfer</button>`}</td></tr>
+  `).join('') : '<tr><td colspan="5">Belum ada invoice.</td></tr>';
+}
+
+async function payInvoice(invoiceId){
+  if (!localStorage.getItem(TOKEN_KEY)) return;
+  if (!confirm('Konfirmasi bahwa Anda sudah melakukan transfer untuk invoice ini? Status Lunas akan diberikan setelah admin memverifikasi.')) return;
+  try {
+    const response = await fetch(`/api/mitra/me/invoices/${encodeURIComponent(invoiceId)}/pay`, {
+      method: 'POST',
+      headers: mitraHeaders()
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Laporan pembayaran gagal dikirim');
+    alert(data.payment_action === 'payment_verified'
+      ? 'Invoice ini sudah lunas.'
+      : 'Laporan pembayaran terkirim dan menunggu verifikasi admin.');
+    await loadInvoices(localStorage.getItem(TOKEN_KEY));
+  } catch (error) {
+    alert(error.message || 'Laporan pembayaran gagal dikirim.');
+  }
+}
+
+function payLatestInvoice(){
+  const invoice = (window.mitraInvoices || []).find(item =>
+    item.status !== 'Lunas' && item.payment_action !== 'payment_reported');
+  if (!invoice) return alert('Tidak ada invoice yang dapat dilaporkan saat ini.');
+  payInvoice(invoice.id);
+}
+
+function renderFleetRows(rows, jobs){
+  const dashboardRows = document.getElementById('dashboardFleetRows');
+  const fleetRows = document.getElementById('fleetRows');
+  const latestJobByPlate = new Map();
+  jobs.forEach(job => {
+    if (!latestJobByPlate.has(job.plat_nomor)) latestJobByPlate.set(job.plat_nomor, job);
+  });
+  const search = document.getElementById('fleetSearch')?.value.trim().toLowerCase() || '';
+  const statusFilter = document.getElementById('fleetStatusFilter')?.value || '';
+  const visibleRows = rows.filter(row => {
+    const job = latestJobByPlate.get(row.plat_nomor);
+    const status = job?.status || (row.aktif ? 'Belum ada SPK' : 'Nonaktif');
+    const text = `${row.plat_nomor} ${row.merk_tipe || ''}`.toLowerCase();
+    return (!search || text.includes(search)) && (!statusFilter || status === statusFilter);
+  });
+  const renderRow = row => {
+    const job = latestJobByPlate.get(row.plat_nomor);
+    const status = job?.status || (row.aktif ? 'Belum ada SPK' : 'Nonaktif');
+    return `<tr><td><b>${escapeHtml(row.merk_tipe || 'Kendaraan')}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(row.plat_nomor)}</span></td><td>${escapeHtml(job?.layanan_nama || '-')}</td><td>${escapeHtml(job?.created_at?.slice(0, 10) || '-')}</td><td><span class="tag ${job?.status === 'Selesai' ? 'green' : job ? 'orange' : row.aktif ? 'gray' : 'gray'}">${escapeHtml(status)}</span></td><td><button class="btn btn-outline" type="button" onclick="toggleArmadaActive(${Number(row.id)})">${row.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button></td></tr>`;
+  };
+  if (fleetRows) fleetRows.innerHTML = visibleRows.length ? visibleRows.map(renderRow).join('') : `<tr><td colspan="5">${rows.length ? 'Tidak ada armada yang cocok dengan filter.' : 'Belum ada armada terdaftar.'}</td></tr>`;
+  if (dashboardRows) {
+    const latestRows = rows.slice(0, 3);
+    dashboardRows.innerHTML = latestRows.length ? latestRows.map(row => {
+      const job = latestJobByPlate.get(row.plat_nomor);
+      return `<tr><td><b>${escapeHtml(row.merk_tipe || 'Kendaraan')}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(row.plat_nomor)}</span></td><td>${escapeHtml(job?.layanan_nama || '-')}</td><td><span class="tag ${job?.status === 'Selesai' ? 'green' : job ? 'orange' : 'gray'}">${escapeHtml(job?.status || (row.aktif ? 'Belum ada SPK' : 'Nonaktif'))}</span></td></tr>`;
+    }).join('') : '<tr><td colspan="3">Belum ada armada.</td></tr>';
+  }
+  renderFleetSelection(rows);
+}
+
+async function loadFleetData(token){
+  const [armadaResponse, serviceResponse, bookingResponse, jobsResponse] = await Promise.all([
+    fetch('/api/mitra/me/armada', { headers: mitraHeaders() }),
+    fetch('/api/layanan'),
+    fetch('/api/mitra/me/bookings', { headers: mitraHeaders() }),
+    fetch('/api/mitra/me/jobs', { headers: mitraHeaders() })
+  ]);
+  const [armadaData, serviceData, bookingData, jobsData] = await Promise.all([
+    armadaResponse.json(), serviceResponse.json(), bookingResponse.json(), jobsResponse.json()
+  ]);
+  if (!armadaResponse.ok || !serviceResponse.ok || !bookingResponse.ok || !jobsResponse.ok) {
+    throw new Error(armadaData.error || serviceData.error || bookingData.error || jobsData.error || 'Gagal memuat data armada mitra');
+  }
+  mitraArmada = armadaData;
+  mitraJobs = jobsData;
+  mitraServices = serviceData;
+  renderFleetRows(mitraArmada, jobsData);
+  const select = document.getElementById('fleetBookingService');
+  if (select) {
+    select.innerHTML = '<option value="">Pilih layanan...</option>' + mitraServices
+      .filter(item => item.aktif !== 0)
+      .map(item => `<option value="${Number(item.id)}">${escapeHtml(item.nama)} - ${formatCurrency(item.harga)}</option>`).join('');
+  }
+  const bookingRows = document.getElementById('fleetBookingRows');
+  if (bookingRows) bookingRows.innerHTML = bookingData.length ? bookingData.map(booking => `
+    <tr><td>${Number(booking.total_unit || 0)} unit</td><td>${escapeHtml(booking.layanan_nama)}</td>
+    <td>${escapeHtml(booking.tanggal)}<br>${escapeHtml(String(booking.waktu || '').slice(0, 5))}</td>
+    <td><span class="tag ${booking.status === 'Dikonversi' ? 'green' : booking.status === 'Batal' ? 'gray' : 'orange'}">${escapeHtml(booking.status)}</span></td></tr>
+  `).join('') : '<tr><td colspan="4">Belum ada booking armada.</td></tr>';
+  updateBookingEstimate();
+}
+
+async function toggleArmadaActive(armadaId){
+  const armada = mitraArmada.find(item => Number(item.id) === Number(armadaId));
+  if (!armada) return;
+  const nextActive = !Number(armada.aktif);
+  if (!confirm(`${nextActive ? 'Aktifkan' : 'Nonaktifkan'} armada ${armada.plat_nomor}?`)) return;
+  try {
+    const response = await fetch(`/api/mitra/me/armada/${encodeURIComponent(armada.id)}`, {
+      method: 'PUT',
+      headers: mitraHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ...armada, aktif: nextActive })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui status armada');
+    await loadFleetData(localStorage.getItem(TOKEN_KEY));
+  } catch (error) {
+    alert(error.message || 'Gagal memperbarui status armada');
+  }
+}
+
+function updateFleetCount(){
+  const checked = Array.from(document.querySelectorAll('.fleet-check:checked'));
+  const count = document.getElementById('fleetUnitCount');
+  if (checked.length > 10) {
+    checked[checked.length - 1].checked = false;
+    if (count) count.textContent = 'Maksimal 10 unit per booking';
+  } else if (count) count.textContent = `${checked.length} Unit Dipilih`;
+  updateBookingEstimate();
+}
+
+function updateBookingEstimate(){
+  const selected = document.querySelectorAll('.fleet-check:checked').length;
+  const serviceId = Number(document.getElementById('fleetBookingService')?.value || 0);
+  const service = mitraServices.find(item => Number(item.id) === serviceId);
+  const subtotal = selected * Number(service?.harga || 0);
+  const discountPercent = Number(mitraProfile?.diskon_persen || 0);
+  const discount = Math.round(subtotal * discountPercent / 100);
+  const label = document.getElementById('estimateSubtotalLabel');
+  if (label) label.textContent = `Subtotal (${selected} Unit)`;
+  document.getElementById('estimateSubtotal').textContent = formatCurrency(subtotal);
+  document.getElementById('estimateDiscount').textContent = `Diskon ${discountPercent}% - ${formatCurrency(discount)}`;
+  document.getElementById('estimateTotal').textContent = formatCurrency(Math.max(0, subtotal - discount));
+}
+
+async function loadDashboardData(token){
+  const errorEl = document.getElementById('portalError');
+  try {
+    const response = await fetch('/api/mitra/me/dashboard', { headers: mitraHeaders() });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat dashboard mitra');
+    populateDashboard(data);
+    await Promise.all([loadInvoices(token), loadFleetData(token), loadProfile()]);
+    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+  } catch (error) {
+    console.error(error);
+    if (errorEl) { errorEl.textContent = error.message || 'Gagal memuat data portal mitra.'; errorEl.style.display = 'block'; }
+  }
+}
+
+async function saveMitraProfile(){
+  try {
+    const response = await fetch('/api/mitra/me/profile', {
+      method: 'PUT',
+      headers: mitraHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        nama_showroom: document.getElementById('mitraNamaShowroom').value.trim(),
+        alamat: document.getElementById('mitraAlamat').value.trim(),
+        telepon: document.getElementById('mitraTelepon').value.trim(),
+        pic_nama: document.getElementById('mitraPicNama').value.trim(),
+        pic_telepon: document.getElementById('mitraPicTelepon').value.trim()
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Profil gagal disimpan');
+    await loadProfile();
+    alert(data.message || 'Profil mitra berhasil diperbarui.');
+  } catch (error) {
+    alert(error.message || 'Profil gagal disimpan');
+  }
+}
+
+async function updateMitraPassword(){
+  try {
+    const response = await fetch('/api/mitra/me/password', {
+      method: 'PUT',
+      headers: mitraHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ password_lama: document.getElementById('oldPassword').value, password_baru: document.getElementById('newPassword').value })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Password gagal diperbarui');
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    alert(data.message || 'Password berhasil diperbarui.');
+  } catch (error) {
+    alert(error.message || 'Password gagal diperbarui');
+  }
+}
+
+function logoutMitra(){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  document.getElementById('portal-app').classList.remove('active');
+  document.getElementById('portalError').style.display = 'none';
+  showAuth('auth-login');
+}
+
+async function restoreSession(){
+  const token = localStorage.getItem(TOKEN_KEY);
+  const storedUser = localStorage.getItem(USER_KEY);
+
+  if (!token || !storedUser) return;
+
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return;
+    }
+
+    const user = await response.json();
+    if (user.role !== 'mitra') throw new Error('Akun bukan mitra');
+    updatePortalUser(user);
+    enterPortal();
+    await loadDashboardData(token);
+  } catch (error) {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', restoreSession);
+</script>
+
+</body>
+</html>
