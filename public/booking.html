@@ -333,14 +333,14 @@
         <div class="field">
           <label>Pilih Tanggal</label>
           <div class="date-field">
-            <input id="bookingTanggal" name="tanggal" type="date">
+            <input id="bookingTanggal" name="tanggal" type="date" required>
             <span>📅</span>
           </div>
         </div>
         <div class="field">
           <label>Pilih Waktu</label>
           <div class="date-field">
-            <input id="bookingWaktu" name="waktu" type="time">
+            <input id="bookingWaktu" name="waktu" type="time" required>
             <span>🕒</span>
           </div>
         </div>
@@ -407,6 +407,11 @@
   const bookingForm = document.getElementById('bookingForm');
   const bookingLayanan = document.getElementById('bookingLayanan');
   const bookingResult = document.getElementById('bookingResult');
+  const bookingDate = document.getElementById('bookingTanggal');
+  const bookingTime = document.getElementById('bookingWaktu');
+  let bookedTimes = new Set();
+  let availabilityRequest = 0;
+  let availabilityDate = '';
 
   function setBookingMessage(message, isError = false) {
     bookingResult.textContent = message || '';
@@ -415,18 +420,60 @@
   }
 
   function setMinDateToday() {
-    const dateInput = document.getElementById('bookingTanggal');
-    if (!dateInput) return;
+    if (!bookingDate) return;
 
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    dateInput.min = `${yyyy}-${mm}-${dd}`;
+    bookingDate.min = `${yyyy}-${mm}-${dd}`;
+  }
+
+  function validateBookingTime() {
+    if (!bookingTime) return false;
+    const unavailable = Boolean(bookingDate?.value && bookingTime.value && bookedTimes.has(bookingTime.value));
+    bookingTime.setCustomValidity(unavailable ? 'Waktu ini sudah dipesan. Silakan pilih waktu lain.' : '');
+    if (unavailable) {
+      setBookingMessage('Waktu tersebut sudah dipesan pada tanggal ini. Silakan pilih waktu lain.', true);
+    } else if (availabilityDate === bookingDate?.value && bookingTime.value) {
+      setBookingMessage('');
+    }
+    return !unavailable;
+  }
+
+  async function loadBookingAvailability() {
+    const date = bookingDate?.value;
+    const requestId = ++availabilityRequest;
+    bookedTimes = new Set();
+    availabilityDate = '';
+    bookingTime?.setCustomValidity('');
+    if (!date) return;
+
+    setBookingMessage('Memeriksa ketersediaan waktu...');
+    try {
+      const response = await fetch(`/api/booking/availability?date=${encodeURIComponent(date)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Gagal memeriksa ketersediaan waktu');
+      if (requestId !== availabilityRequest) return;
+      bookedTimes = new Set(data.booked);
+      availabilityDate = date;
+      if (bookingTime.value) {
+        validateBookingTime();
+      } else {
+        setBookingMessage('Pilih waktu yang masih tersedia pada tanggal ini.');
+      }
+    } catch (error) {
+      if (requestId !== availabilityRequest) return;
+      setBookingMessage('Ketersediaan waktu tidak dapat diperiksa. Jadwal akan divalidasi saat konfirmasi.', true);
+    }
   }
 
   function continueToCustomerPortal() {
     if (!bookingForm.reportValidity()) return;
+    if (!validateBookingTime()) {
+      bookingTime.reportValidity();
+      return;
+    }
 
     const draft = {
       nama: document.getElementById('bookingNama').value.trim(),
@@ -473,6 +520,8 @@
   }
 
   bookingForm?.addEventListener('submit', (event) => event.preventDefault());
+  bookingDate?.addEventListener('change', loadBookingAvailability);
+  bookingTime?.addEventListener('change', validateBookingTime);
 
   document.addEventListener('DOMContentLoaded', () => {
     setMinDateToday();

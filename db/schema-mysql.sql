@@ -98,9 +98,14 @@ CREATE TABLE IF NOT EXISTS booking (
   email VARCHAR(191), plat_nomor VARCHAR(30) NOT NULL, merk_tipe VARCHAR(150), layanan_id INT UNSIGNED,
   tanggal DATE, waktu TIME, catatan TEXT, status ENUM('Baru','Diproses','Dikonversi','Batal') NOT NULL DEFAULT 'Baru',
   spk_id INT UNSIGNED, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id),
-  KEY idx_booking_user (user_id),
+  KEY idx_booking_user (user_id), KEY idx_booking_schedule (tanggal, waktu, status),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (layanan_id) REFERENCES layanan(id) ON DELETE SET NULL, FOREIGN KEY (spk_id) REFERENCES spk(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS booking_schedule_lock (
+  tanggal DATE NOT NULL,
+  PRIMARY KEY (tanggal)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS pengaturan (`key` VARCHAR(100) NOT NULL, `value` TEXT, PRIMARY KEY (`key`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

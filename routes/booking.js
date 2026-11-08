@@ -16,6 +16,54 @@ function isValidDateTime(dateValue, timeValue) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day && date.getHours() === hour && date.getMinutes() === minute;
 }
 
+function httpError(status, message) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+async function lockBookingDate(connection, date) {
+  await db.run('INSERT IGNORE INTO booking_schedule_lock (tanggal) VALUES (?)', [date], connection);
+  await db.get('SELECT tanggal FROM booking_schedule_lock WHERE tanggal=? FOR UPDATE', [date], connection);
+}
+
+async function ensureScheduleAvailable(date, time, connection, excludeBookingId) {
+  const params = [date, time];
+  let sql = `
+    SELECT id FROM booking
+    WHERE tanggal=? AND waktu=? AND status <> 'Batal'
+  `;
+  if (excludeBookingId) {
+    sql += ' AND id <> ?';
+    params.push(excludeBookingId);
+  }
+  sql += ' LIMIT 1';
+
+  const existing = await db.get(sql, params, connection);
+  if (existing) {
+    throw httpError(409, 'Jadwal tersebut sudah dipesan. Silakan pilih waktu lain.');
+  }
+}
+
+router.get('/availability', async (req, res, next) => {
+  const date = typeof req.query.date === 'string' ? req.query.date : '';
+  if (!isValidDateTime(date, '00:00')) {
+    return res.status(400).json({ error: 'Tanggal booking tidak valid' });
+  }
+
+  try {
+    const rows = await db.all(`
+      SELECT DISTINCT TIME_FORMAT(waktu, '%H:%i') AS waktu
+      FROM booking
+      WHERE tanggal=? AND waktu IS NOT NULL AND status <> 'Batal'
+      ORDER BY waktu
+    `, [date]);
+    res.json({ tanggal: date, booked: rows.map((row) => row.waktu) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 async function createBooking(req, res, next) {
   try {
     const body = req.body || {};
@@ -60,11 +108,16 @@ async function createBooking(req, res, next) {
       return res.status(400).json({ error: 'Tanggal booking harus valid dan belum lewat' });
     }
 
-    const result = await db.run(`
-      INSERT INTO booking (user_id, nama, telepon, email, plat_nomor, merk_tipe, layanan_id, tanggal, waktu, catatan)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
-    `, [req.user.id, values.nama, values.telepon, values.email, values.plat_nomor,
-      values.merk_tipe, layananId, values.tanggal, values.waktu, values.catatan]);
+    const result = await db.transaction(async (connection) => {
+      await lockBookingDate(connection, values.tanggal);
+      await ensureScheduleAvailable(values.tanggal, values.waktu, connection);
+
+      return db.run(`
+        INSERT INTO booking (user_id, nama, telepon, email, plat_nomor, merk_tipe, layanan_id, tanggal, waktu, catatan)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+      `, [req.user.id, values.nama, values.telepon, values.email, values.plat_nomor,
+        values.merk_tipe, layananId, values.tanggal, values.waktu, values.catatan], connection);
+    });
 
     return res.status(201).json({
       message: req.path === '/me'
@@ -136,6 +189,22 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
       return res.status(404).json({ error: 'Booking tidak ditemukan' });
     }
 
+    if (booking.status === 'Batal' && newStatus !== 'Batal' &&
+        (!booking.tanggal || !booking.waktu)) {
+      return res.status(409).json({ error: 'Booking ini tidak memiliki jadwal valid untuk diaktifkan kembali' });
+    }
+
+    if (booking.status === 'Batal' && newStatus !== 'Batal' &&
+        !(newStatus === 'Dikonversi' && !booking.spk_id)) {
+      const updatedBooking = await db.transaction(async (connection) => {
+        await lockBookingDate(connection, booking.tanggal);
+        await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
+        await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
+        return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
+      });
+      return res.json(updatedBooking);
+    }
+
     // OTOMASI: Jika Admin memilih 'Dikonversi' dan SPK belum pernah dibuat
     if (newStatus === 'Dikonversi' && !booking.spk_id) {
       
@@ -168,6 +237,11 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
 
       // 4. Buat SPK Baru secara otomatis
       const rSpk = await db.transaction(async (connection) => {
+        if (booking.status === 'Batal') {
+          await lockBookingDate(connection, booking.tanggal);
+          await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
+        }
+
         const result = await db.run(`
           INSERT INTO spk (no_spk, pelanggan_id, plat_nomor, merk_tipe, layanan_id, harga, total, status)
           VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu')

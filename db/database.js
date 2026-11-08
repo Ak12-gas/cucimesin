@@ -71,6 +71,15 @@ async function initialize() {
     await pool.query('ALTER TABLE booking ADD INDEX idx_booking_user (user_id)');
   }
 
+  const [bookingScheduleIndex] = await pool.query(`
+    SELECT COUNT(*) AS count
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'booking' AND INDEX_NAME = 'idx_booking_schedule'
+  `);
+  if (!Number(bookingScheduleIndex[0].count)) {
+    await pool.query('ALTER TABLE booking ADD INDEX idx_booking_schedule (tanggal, waktu, status)');
+  }
+
   const [bookingUserForeignKey] = await pool.query(`
     SELECT COUNT(*) AS count
     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE

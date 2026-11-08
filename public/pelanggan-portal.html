@@ -607,9 +607,10 @@
         <div class="field2"><label>Plat Nomor Kendaraan</label><input id="bookingPlatNomor" type="text" placeholder="Contoh: S 1234 AB"></div>
         <div class="field2"><label>Merek &amp; Tipe Kendaraan</label><input id="bookingMerkTipe" type="text" placeholder="Contoh: Toyota Innova Reborn (Hitam)"></div>
         <div class="two-col">
-          <div class="field2"><label>Tanggal Kedatangan</label><input id="bookingTanggal" type="date"></div>
-          <div class="field2"><label>Waktu (Estimasi)</label><input id="bookingWaktu" type="time"></div>
+          <div class="field2"><label>Tanggal Kedatangan</label><input id="bookingTanggal" type="date" required></div>
+          <div class="field2"><label>Waktu (Estimasi)</label><input id="bookingWaktu" type="time" required></div>
         </div>
+        <p id="bookingAvailabilityMessage" role="status" style="font-size:12px;margin:0 0 12px;color:var(--muted);"></p>
         <div class="field2">
           <label>Catatan Khusus</label>
           <textarea id="bookingCatatan" style="width:100%;border:1px solid var(--border);background:var(--bg-soft);border-radius:8px;padding:11px 13px;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;" placeholder="Contoh: Mesin terasa berisik saat idle..."></textarea>
@@ -650,6 +651,9 @@ const TOKEN_KEY = 'cucimesin_customer_token';
 const USER_KEY = 'cucimesin_customer_user';
 let layananCatalog = [];
 let selectedLayananId = null;
+let bookedBookingTimes = new Set();
+let bookingAvailabilityRequest = 0;
+let bookingAvailabilityDate = '';
 let customerHistoryRows = [];
 let customerPaymentData = { rekening: {}, pembayaran: [] };
 
@@ -1307,6 +1311,7 @@ async function loadLayananOptions(){
         if (field && bookingDraft[key]) field.value = bookingDraft[key];
       });
       sessionStorage.removeItem('cucimesin_booking_draft');
+      loadPortalBookingAvailability();
     }
 
     if (requestedLayanan || bookingDraft) showC('booking');
@@ -1336,6 +1341,60 @@ function setBookingDefaults(user){
   }
 
   if (bookingWaktu) bookingWaktu.value = '10:00';
+  loadPortalBookingAvailability();
+}
+
+function validatePortalBookingTime(){
+  const date = document.getElementById('bookingTanggal');
+  const time = document.getElementById('bookingWaktu');
+  const message = document.getElementById('bookingAvailabilityMessage');
+  if (!date || !time || !message) return false;
+
+  const unavailable = bookingAvailabilityDate === date.value && bookedBookingTimes.has(time.value);
+  time.setCustomValidity(unavailable ? 'Waktu ini sudah dipesan. Silakan pilih waktu lain.' : '');
+  if (unavailable) {
+    message.textContent = 'Waktu tersebut sudah dipesan pada tanggal ini. Silakan pilih waktu lain.';
+    message.style.color = 'var(--red)';
+  } else if (bookingAvailabilityDate === date.value && time.value) {
+    message.textContent = 'Waktu ini tersedia.';
+    message.style.color = 'var(--green-text)';
+  }
+  return !unavailable;
+}
+
+async function loadPortalBookingAvailability(){
+  const date = document.getElementById('bookingTanggal')?.value || '';
+  const time = document.getElementById('bookingWaktu');
+  const message = document.getElementById('bookingAvailabilityMessage');
+  const requestId = ++bookingAvailabilityRequest;
+  bookingAvailabilityDate = '';
+  bookedBookingTimes = new Set();
+  time?.setCustomValidity('');
+  if (!date || !message) {
+    if (message) message.textContent = '';
+    return;
+  }
+
+  message.textContent = 'Memeriksa ketersediaan waktu...';
+  message.style.color = 'var(--muted)';
+  try {
+    const response = await fetch(`/api/booking/availability?date=${encodeURIComponent(date)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memeriksa ketersediaan waktu');
+    if (requestId !== bookingAvailabilityRequest) return;
+    bookedBookingTimes = new Set(data.booked);
+    bookingAvailabilityDate = date;
+    if (time?.value) {
+      validatePortalBookingTime();
+    } else {
+      message.textContent = 'Pilih waktu yang masih tersedia pada tanggal ini.';
+      message.style.color = 'var(--muted)';
+    }
+  } catch (error) {
+    if (requestId !== bookingAvailabilityRequest) return;
+    message.textContent = 'Ketersediaan waktu tidak dapat diperiksa. Jadwal akan divalidasi saat konfirmasi.';
+    message.style.color = 'var(--red)';
+  }
 }
 
 async function submitBooking(){
@@ -1354,6 +1413,15 @@ async function submitBooking(){
   const tanggal = document.getElementById('bookingTanggal')?.value || '';
   const waktu = document.getElementById('bookingWaktu')?.value || '';
   const catatan = document.getElementById('bookingCatatan')?.value.trim() || '';
+
+  if (!tanggal || !waktu) {
+    alert('Tanggal dan waktu booking wajib dipilih.');
+    return;
+  }
+  if (!validatePortalBookingTime()) {
+    document.getElementById('bookingWaktu')?.reportValidity();
+    return;
+  }
 
   if (!nama || !telepon || !plat_nomor) {
     alert('Mohon isi kelengkapan Nama, Nomor WhatsApp, dan Plat Nomor Anda.');
@@ -1762,7 +1830,11 @@ function updateProfileStatsFromSpk(rows){
   if (elSelesaiSub) elSelesaiSub.textContent = selesai > 0 ? 'Siap diambil' : 'Belum ada yang selesai';
 }
 
-window.addEventListener('DOMContentLoaded', restoreSession);
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('bookingTanggal')?.addEventListener('change', loadPortalBookingAvailability);
+  document.getElementById('bookingWaktu')?.addEventListener('change', validatePortalBookingTime);
+  restoreSession();
+});
 </script>
 
 </body>
