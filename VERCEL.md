@@ -12,7 +12,9 @@ menyediakan database MySQL bawaan untuk aplikasi ini.
 3. Siapkan database MySQL yang dapat diakses dari internet, lalu izinkan koneksi
    dari deployment Vercel sesuai fitur jaringan penyedia database.
 4. Tambahkan environment variables berikut di **Project Settings → Environment
-   Variables** untuk Production (tambahkan juga ke Preview bila diperlukan):
+   Variables**. Pilih **Preview** untuk deployment Preview dan **Production**
+   untuk deployment production. Nilai DB_HOST harus host MySQL yang dapat
+   dijangkau dari Vercel, bukan `localhost`, `127.0.0.1`, atau alamat XAMPP lokal.
 
    ```text
    DB_HOST=<host MySQL>
