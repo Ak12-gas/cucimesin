@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": null,
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/uploads/:path*",
+      "destination": "/api/uploads/:path*"
+    }
+  ],
+  "functions": {
+    "api/**": {
+      "includeFiles": "{db/schema-mysql.sql,templates/**,node_modules/@sparticuz/chromium/bin/**}",
+      "excludeFiles": "public/**",
+      "maxDuration": 60
+    }
+  }
+}

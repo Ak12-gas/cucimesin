@@ -1,5 +1,8 @@
 # Deploy CuciMesin ke Railway
 
+Untuk deployment serverless di Vercel, ikuti [VERCEL.md](./VERCEL.md). Panduan
+di bawah ini tetap berlaku untuk deployment container Railway.
+
 Aplikasi ini terdiri dari web statis dan backend Express dalam satu service. Backend
 menggunakan MySQL, membuat tabel yang belum ada saat startup, membuat PDF dengan
 Chromium, dan menyimpan foto serta bukti pembayaran di disk. Karena itu, deploy

@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 
@@ -27,12 +27,23 @@ function findSystemChrome(){
 
 async function getBrowser() {
   if (!browserPromise) {
-    const executablePath = findSystemChrome();
-    browserPromise = puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-      ...(executablePath ? { executablePath } : {})
-    }).catch((error) => {
+    browserPromise = (async () => {
+      if (process.env.VERCEL) {
+        const chromium = require('@sparticuz/chromium');
+        return puppeteer.launch({
+          args: await puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+          executablePath: await chromium.executablePath(),
+          headless: 'shell'
+        });
+      }
+
+      const executablePath = findSystemChrome();
+      return puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        ...(executablePath ? { executablePath } : {})
+      });
+    })().catch((error) => {
       browserPromise = null;
       throw error;
     });
