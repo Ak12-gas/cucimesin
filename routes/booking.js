@@ -23,7 +23,7 @@ function httpError(status, message) {
 }
 
 async function lockBookingDate(connection, date) {
-  await db.run('INSERT IGNORE INTO booking_schedule_lock (tanggal) VALUES (?)', [date], connection);
+  await db.run('INSERT INTO booking_schedule_lock (tanggal) VALUES (?) ON CONFLICT (tanggal) DO NOTHING', [date], connection);
   await db.get('SELECT tanggal FROM booking_schedule_lock WHERE tanggal=? FOR UPDATE', [date], connection);
 }
 
@@ -53,7 +53,7 @@ router.get('/availability', async (req, res, next) => {
 
   try {
     const rows = await db.all(`
-      SELECT DISTINCT TIME_FORMAT(waktu, '%H:%i') AS waktu
+      SELECT DISTINCT TO_CHAR(waktu, 'HH24:MI') AS waktu
       FROM booking
       WHERE tanggal=? AND waktu IS NOT NULL AND status <> 'Batal'
       ORDER BY waktu

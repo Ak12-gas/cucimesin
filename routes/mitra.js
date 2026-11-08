@@ -160,7 +160,7 @@ router.get('/admin/bookings', auth(['admin']), async (req, res) => {
            m.nama_showroom, m.pic_nama, m.telepon AS mitra_telepon,
            l.nama AS layanan_nama, l.harga AS harga_layanan,
            (SELECT COUNT(*) FROM booking_armada_unit bu WHERE bu.booking_id=b.id) AS total_unit,
-           (SELECT GROUP_CONCAT(CONCAT(a.plat_nomor, ' · ', COALESCE(a.merk_tipe, 'Kendaraan')) ORDER BY a.id SEPARATOR ', ')
+           (SELECT STRING_AGG(CONCAT(a.plat_nomor, ' · ', COALESCE(a.merk_tipe, 'Kendaraan')), ', ' ORDER BY a.id)
             FROM booking_armada_unit bu JOIN armada a ON a.id=bu.armada_id WHERE bu.booking_id=b.id) AS unit
     FROM booking_armada b
     JOIN mitra m ON m.id=b.mitra_id
@@ -302,7 +302,7 @@ router.patch('/admin/invoices/:id/payment-status', auth(['admin']), async (req, 
     if (decision === 'verify') {
       await db.run("UPDATE invoice_mitra SET status='Lunas' WHERE id=? AND status='Belum Dibayar'", [invoiceId], connection);
       await db.run(
-        "INSERT INTO transaksi (tipe, kategori, deskripsi, nominal, mitra_id, tanggal) VALUES ('masuk', 'Invoice Mitra', ?, ?, ?, CURDATE())",
+        "INSERT INTO transaksi (tipe, kategori, deskripsi, nominal, mitra_id, tanggal) VALUES ('masuk', 'Invoice Mitra', ?, ?, ?, CURRENT_DATE)",
         [`Pembayaran ${current.no_invoice}`, current.total, current.mitra_id], connection
       );
     }
@@ -321,7 +321,7 @@ router.get('/me/dashboard', auth(['mitra']), async (req, res) => {
   const start = toLocalDateString().slice(0, 8) + '01';
   const total = (await db.get("SELECT COUNT(*) c FROM spk WHERE mitra_id=? AND status<>'Batal' AND DATE(created_at)>=?", [id, start])).c;
   const unpaid = (await db.get("SELECT COALESCE(SUM(total),0) v FROM invoice_mitra WHERE mitra_id=? AND status='Belum Dibayar'", [id])).v;
-  const completedRecently = (await db.get("SELECT COUNT(*) c FROM spk WHERE mitra_id=? AND status='Selesai' AND waktu_selesai>=DATE_SUB(NOW(), INTERVAL 30 DAY)", [id])).c;
+  const completedRecently = (await db.get("SELECT COUNT(*) c FROM spk WHERE mitra_id=? AND status='Selesai' AND waktu_selesai>=CURRENT_TIMESTAMP - INTERVAL '30 days'", [id])).c;
   res.json({ total_cuci_bulan_ini: total, tagihan_belum_dibayar: unpaid, kendaraan_selesai_30_hari: completedRecently });
 });
 
@@ -418,7 +418,7 @@ router.put('/me/armada/:id', auth(['mitra']), async (req, res) => {
   if (!plat_nomor) return res.status(400).json({ error: 'Plat nomor wajib diisi' });
   if (aktif !== undefined && typeof aktif !== 'boolean') return res.status(400).json({ error: 'Field aktif harus boolean' });
   try {
-    const result = await db.run('UPDATE armada SET plat_nomor=?, merk_tipe=?, tahun=?, warna=?, aktif=COALESCE(?, aktif) WHERE id=? AND mitra_id=?', [String(plat_nomor).trim().toUpperCase(), merk_tipe || null, tahun || null, warna || null, aktif === undefined ? null : (aktif ? 1 : 0), Number(req.params.id), req.user.mitra_id]);
+    const result = await db.run('UPDATE armada SET plat_nomor=?, merk_tipe=?, tahun=?, warna=?, aktif=COALESCE(?, aktif), updated_at=CURRENT_TIMESTAMP WHERE id=? AND mitra_id=?', [String(plat_nomor).trim().toUpperCase(), merk_tipe || null, tahun || null, warna || null, aktif === undefined ? null : (aktif ? 1 : 0), Number(req.params.id), req.user.mitra_id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Armada tidak ditemukan' });
     res.json(await db.get('SELECT * FROM armada WHERE id=? AND mitra_id=?', [Number(req.params.id), req.user.mitra_id]));
   } catch (error) {

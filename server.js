@@ -58,8 +58,8 @@ function createApp() {
     if (err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'INVALID_FILE_TYPE') {
       return res.status(400).json({ error: 'File upload tidak valid atau terlalu besar' });
     }
-    if (err.code === 'ECONNREFUSED' || err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ENOTFOUND') {
-      return res.status(503).json({ error: 'Database tidak tersedia. Periksa konfigurasi dan koneksi MySQL.' });
+    if (['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND', 'ETIMEDOUT', '08000', '08003', '08006', '57P03'].includes(err.code)) {
+      return res.status(503).json({ error: 'Database tidak tersedia. Periksa DATABASE_URL dan koneksi Supabase.' });
     }
     const status = err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
     res.status(status).json({ error: status === 500 ? 'Server error' : err.message });

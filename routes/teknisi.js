@@ -80,7 +80,7 @@ router.put('/:id', auth(['admin']), async (req, res) => {
   const cleanEmail = email ? String(email).trim().toLowerCase() : null;
 
   try {
-    let query = 'UPDATE users SET nama=?, email=?, telepon=?, aktif=? WHERE id=? AND role="teknisi"';
+    let query = "UPDATE users SET nama=?, email=?, telepon=?, aktif=? WHERE id=? AND role='teknisi'";
     let params = [nama, cleanEmail, telepon, safeAktif, req.params.id];
 
     if (password) {
@@ -88,7 +88,7 @@ router.put('/:id', auth(['admin']), async (req, res) => {
         return res.status(400).json({ error: 'Password minimal 8 karakter' });
       }
       const hash = bcrypt.hashSync(password, 10);
-      query = 'UPDATE users SET nama=?, email=?, telepon=?, aktif=?, password=? WHERE id=? AND role="teknisi"';
+      query = "UPDATE users SET nama=?, email=?, telepon=?, aktif=?, password=? WHERE id=? AND role='teknisi'";
       params = [nama, cleanEmail, telepon, safeAktif, hash, req.params.id];
     }
 

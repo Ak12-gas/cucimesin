@@ -4,16 +4,15 @@ Tanggal analisis: 2026-09-15
 
 ## 1. Ringkasan
 
-CuciMesin adalah aplikasi operasional jasa cuci mesin kendaraan berbasis Node.js/Express dengan MySQL/MariaDB melalui `mysql2/promise`. Aplikasi melayani empat peran:
+CuciMesin adalah aplikasi operasional jasa cuci mesin kendaraan berbasis Node.js/Express dengan PostgreSQL Supabase melalui `pg`. Aplikasi melayani empat peran.
 
-## Setup XAMPP MySQL
+## Setup Supabase
 
-1. Start Apache dan MySQL dari XAMPP Control Panel.
-2. Buat database `cucimesin` melalui phpMyAdmin atau `CREATE DATABASE cucimesin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`.
-3. Salin `.env.example` menjadi `.env`, lalu isi `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, dan `JWT_SECRET`.
-4. Jalankan `npm install`, kemudian `npm run seed` dan `npm run dev`.
+1. Buat project Supabase dan salin connection string PostgreSQL dari **Connect**.
+2. Salin `.env.example` menjadi `.env`, lalu isi `DATABASE_URL` dan `JWT_SECRET`.
+3. Jalankan `npm install`, kemudian `npm run dev`.
 
-Database SQLite lama di `data/cucimesin.db` tidak dihapus dan tetap menjadi backup. Seeding aplikasi memakai `db/seed-mysql.js`; `db/seed.js` hanya legacy SQLite dan tidak dimuat server maupun script package.
+Untuk menyalin data MySQL lama, isi `SOURCE_DB_*` dan `DATABASE_URL`, lalu jalankan `npm run migrate:supabase`. Database SQLite di `data/cucimesin.db` bukan sumber aktif backend dan tidak disalin. Seeding aplikasi memakai `db/seed-supabase.js`; `db/seed.js` hanya legacy SQLite.
 
 - `admin`: dashboard, SPK, pelanggan, teknisi, keuangan, laporan, pengaturan.
 - `teknisi`: tugas SPK, checklist, foto sebelum/sesudah, perubahan status.
@@ -27,8 +26,8 @@ Frontend disajikan sebagai berkas HTML statis dari folder `public/`. Backend dan
 ### Entry point
 
 - `server.js` memuat dotenv, membuat Express app, memasang CORS global, parser JSON/urlencoded, static files, seluruh route API, error handler, dan listener port.
-- Database memakai `mysql2/promise`; `server.js` menjalankan `await db.initialize()` sebelum listen. Skema dibuat otomatis dengan `CREATE TABLE IF NOT EXISTS`.
-- `db/seed-mysql.js` mengisi akun, mitra, layanan, pelanggan, contoh SPK, checklist, invoice, transaksi, dan pengaturan dalam transaction MySQL.
+- Database memakai `pg`; `server.js` menjalankan `await db.initialize()` sebelum listen. Skema PostgreSQL Supabase dibuat otomatis dengan `CREATE TABLE IF NOT EXISTS`.
+- `db/seed-supabase.js` mengisi data demo dalam transaction PostgreSQL. Script ini hanya untuk development.
 
 ### Modul backend
 
@@ -52,7 +51,7 @@ Frontend disajikan sebagai berkas HTML statis dari folder `public/`. Backend dan
 
 1. Admin membuat SPK melalui `POST /api/spk`.
 2. Sistem memvalidasi referensi pelanggan, mitra, teknisi, layanan, dan diskon.
-3. Sistem membuat nomor SPK, checklist default, dan audit log dalam transaksi MySQL.
+3. Sistem membuat nomor SPK, checklist default, dan audit log dalam transaksi PostgreSQL.
 4. Teknisi/admin dapat mengubah status, checklist, dan upload foto.
 5. Status `Selesai` otomatis membuat transaksi pemasukan.
 6. Pengguna yang berhak dapat mengunduh PDF melalui `GET /api/spk/:id/pdf`.
@@ -218,18 +217,15 @@ Perubahan pada sesi perbaikan ini:
 
 Perbaikan penuh masih memerlukan foreign key untuk seluruh tabel bisnis, reset password berbasis token, workflow konversi booking ke SPK, pemisahan status pengerjaan dan pembayaran, pengujian otomatis formal, serta penggantian data demo statis pada frontend. CORS production harus diisi, misalnya `CORS_ORIGINS=https://domain-frontend.example`.
 
-## 11. Status Migrasi XAMPP MySQL
+## 11. Status Migrasi Supabase
 
-Aplikasi sudah dipindahkan dari adapter SQLite ke MySQL/MariaDB melalui `mysql2/promise`.
+Aplikasi menggunakan PostgreSQL Supabase melalui `pg`. Skema baru tersimpan di
+`db/schema-supabase.sql`; saat API mulai, tabel dan index yang belum ada dibuat
+secara otomatis.
 
-Setup XAMPP:
+Untuk development, isi `DATABASE_URL` pada `.env` dengan connection string
+Supabase. Untuk menyalin data MySQL lama, isi `SOURCE_DB_*` dan jalankan
+`npm run migrate:supabase`. Skrip hanya menerima target Supabase yang kosong;
+data SQLite lama bukan sumber aktif backend dan tidak dimigrasikan.
 
-1. Buka XAMPP Control Panel dan jalankan **MySQL**. Apache tidak wajib untuk backend Node.js ini.
-2. Buka `http://localhost/phpmyadmin`.
-3. Buat database bernama `cucimesin` dengan collation `utf8mb4_unicode_ci`.
-4. Pastikan `.env` berisi `DB_HOST=127.0.0.1`, `DB_PORT=3306`, `DB_NAME=cucimesin`, `DB_USER=root`, dan password MySQL XAMPP.
-5. Jalankan `npm install`.
-6. Jalankan `npm run seed` untuk membuat schema dan data demo.
-7. Jalankan `npm run dev` atau `npm start`.
-
-Schema MySQL tersimpan di `db/schema-mysql.sql`. File SQLite `data/cucimesin.db` tidak dihapus dan tetap menjadi backup lama; aplikasi aktif sekarang memakai MySQL sesuai `.env`.
+Untuk deployment Vercel, ikuti [VERCEL.md](./VERCEL.md).

@@ -383,7 +383,8 @@ router.put('/:id/laporan', auth(['teknisi']), loadSpk, authorizeSpk, async (req,
     await db.run(`
       INSERT INTO spk_laporan (spk_id, teknisi_id, laporan)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE teknisi_id=VALUES(teknisi_id), laporan=VALUES(laporan), updated_at=CURRENT_TIMESTAMP
+      ON CONFLICT (spk_id) DO UPDATE SET teknisi_id=EXCLUDED.teknisi_id,
+        laporan=EXCLUDED.laporan, updated_at=CURRENT_TIMESTAMP
     `, [req.spk.id, req.user.id, laporan], connection);
     await writeAudit('spk', req.spk.id, 'technician_report', req.user, { no_spk: req.spk.no_spk }, connection);
   });
@@ -407,7 +408,7 @@ router.patch('/:id/teknisi', auth(['admin']), loadSpk, async (req, res) => {
 
   const current = req.spk;
   const updated = await db.transaction(async (connection) => {
-    const result = await db.run('UPDATE spk SET teknisi_id=? WHERE id=? AND teknisi_id <=> ?', [teknisiId, current.id, current.teknisi_id], connection);
+    const result = await db.run('UPDATE spk SET teknisi_id=? WHERE id=? AND teknisi_id IS NOT DISTINCT FROM ?', [teknisiId, current.id, current.teknisi_id], connection);
     if (!result.affectedRows) return db.get('SELECT * FROM spk WHERE id=?', [current.id], connection);
     await writeAudit('spk', current.id, 'teknisi_reassign', req.user, {
       from_teknisi_id: current.teknisi_id,

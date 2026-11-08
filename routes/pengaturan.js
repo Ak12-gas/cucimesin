@@ -28,7 +28,7 @@ router.get('/', auth(['admin']), async (req, res) => {
 router.put('/', auth(['admin']), async (req, res) => {
   await db.transaction(async (connection) => {
     for (const [k, v] of Object.entries(req.body)) {
-      await db.run('INSERT INTO pengaturan (`key`, `value`) VALUES (?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)', [k, String(v)], connection);
+      await db.run('INSERT INTO pengaturan (`key`, `value`) VALUES (?,?) ON CONFLICT ("key") DO UPDATE SET "value"=EXCLUDED."value"', [k, String(v)], connection);
     }
   });
   res.json({ message: 'Tersimpan' });

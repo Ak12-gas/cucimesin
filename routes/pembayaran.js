@@ -156,7 +156,7 @@ router.put('/rekening', auth(['admin']), async (req, res) => {
   await db.transaction(async (connection) => {
     for (const [key, value] of Object.entries(rekening)) {
       await db.run(
-        'INSERT INTO pengaturan (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
+        'INSERT INTO pengaturan (`key`, `value`) VALUES (?, ?) ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"',
         [key, value],
         connection
       );
@@ -213,7 +213,7 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
         previousProof = existing.bukti_path;
         await db.run(`
           UPDATE pembayaran
-          SET nominal = ?, metode = 'Transfer Bank', bukti_path = ?,
+          SET nominal = ?, metode = 'Transfer Bank', bukti_path = ?, updated_at = CURRENT_TIMESTAMP,
               status = 'Menunggu Konfirmasi', catatan_admin = NULL,
               submitted_at = CURRENT_TIMESTAMP, confirmed_at = NULL, confirmed_by = NULL
           WHERE id = ?
@@ -318,14 +318,15 @@ router.patch('/:id/status', auth(['admin']), async (req, res) => {
 
     await db.run(`
       UPDATE pembayaran
-      SET status = ?, catatan_admin = ?, confirmed_at = CURRENT_TIMESTAMP, confirmed_by = ?
+      SET status = ?, catatan_admin = ?, confirmed_at = CURRENT_TIMESTAMP, confirmed_by = ?,
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND status = 'Menunggu Konfirmasi'
     `, [status, note || null, req.user.id, paymentId], connection);
 
     if (status === 'Dikonfirmasi') {
       await db.run(`
         INSERT INTO transaksi (tipe, kategori, deskripsi, nominal, spk_id, tanggal)
-        VALUES ('masuk', 'Pembayaran Online', ?, ?, ?, CURDATE())
+        VALUES ('masuk', 'Pembayaran Online', ?, ?, ?, CURRENT_DATE)
       `, [`Pembayaran ${payment.no_spk}`, Number(payment.nominal), payment.spk_id], connection);
     }
 

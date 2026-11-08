@@ -1,4 +1,4 @@
-// Legacy SQLite seed. The application uses db/seed-mysql.js via npm run seed.
+// Legacy SQLite seed. The application uses db/seed-supabase.js via npm run seed.
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const db = require('./database');

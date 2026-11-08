@@ -87,14 +87,14 @@ router.get('/tren', async (req, res) => {
     SELECT tgl, SUM(jumlah) AS jumlah FROM (
       SELECT DATE(created_at) AS tgl, COUNT(*) AS jumlah
       FROM spk
-      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
       GROUP BY DATE(created_at)
       
       UNION ALL
       
       SELECT DATE(created_at) AS tgl, COUNT(*) AS jumlah
       FROM booking
-      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND spk_id IS NULL
+      WHERE created_at >= CURRENT_DATE - INTERVAL '6 days' AND spk_id IS NULL
       GROUP BY DATE(created_at)
     ) AS gabungan_tren
     GROUP BY tgl
