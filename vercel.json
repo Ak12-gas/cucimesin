@@ -9,6 +9,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/api/:path*",
+      "destination": "/api/index?__route=:path*"
+    },
+    {
       "source": "/uploads/:path*",
       "destination": "/api/uploads/:path*"
     }
