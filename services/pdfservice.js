@@ -1,4 +1,3 @@
-const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 
@@ -6,6 +5,17 @@ const TEMPLATE_DIR = path.join(__dirname, '..', 'templates');
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'));
 
 let browserPromise = null;
+let puppeteerPromise = null;
+
+async function getPuppeteer() {
+  if (!puppeteerPromise) {
+    puppeteerPromise = import('puppeteer-core').then((module) => module.default).catch((error) => {
+      puppeteerPromise = null;
+      throw error;
+    });
+  }
+  return puppeteerPromise;
+}
 
 function findSystemChrome(){
   const candidates = [process.env.PUPPETEER_EXECUTABLE_PATH];
@@ -28,6 +38,7 @@ function findSystemChrome(){
 async function getBrowser() {
   if (!browserPromise) {
     browserPromise = (async () => {
+      const puppeteer = await getPuppeteer();
       if (process.env.VERCEL) {
         const chromium = require('@sparticuz/chromium');
         return puppeteer.launch({

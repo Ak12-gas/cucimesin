@@ -24,6 +24,8 @@ const TABLES = [
   'booking_armada_unit'
 ];
 
+const OPTIONAL_SOURCE_TABLES = new Set(['booking_schedule_lock']);
+
 const ID_TABLES = TABLES.filter((table) => ![
   'invoice_mitra_spk',
   'booking_schedule_lock',
@@ -39,7 +41,9 @@ function createSourceConnection() {
   const host = process.env.SOURCE_DB_HOST || process.env.DB_HOST;
   const database = process.env.SOURCE_DB_NAME || process.env.DB_NAME;
   const user = process.env.SOURCE_DB_USER || process.env.DB_USER;
-  const password = process.env.SOURCE_DB_PASSWORD || process.env.DB_PASSWORD || '';
+  const password = process.env.SOURCE_DB_PASSWORD !== undefined
+    ? process.env.SOURCE_DB_PASSWORD
+    : (process.env.DB_PASSWORD || '');
   if (!host || !database || !user) {
     throw new Error('SOURCE_DB_HOST, SOURCE_DB_NAME, dan SOURCE_DB_USER (atau DB_* lama) wajib diatur.');
   }
@@ -61,6 +65,20 @@ async function ensureTargetIsEmpty() {
       throw new Error(`Tabel Supabase "${table}" sudah berisi data. Migrasi dibatalkan agar data tidak tertimpa.`);
     }
   }
+}
+
+async function getSourceTables(source) {
+  const [rows] = await source.query(`
+    SELECT TABLE_NAME AS table_name
+    FROM INFORMATION_SCHEMA.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+  `);
+  const available = new Set(rows.map((row) => row.table_name));
+  const missingRequired = TABLES.filter((table) => !available.has(table) && !OPTIONAL_SOURCE_TABLES.has(table));
+  if (missingRequired.length) {
+    throw new Error(`Tabel wajib tidak ditemukan di MySQL sumber: ${missingRequired.join(', ')}`);
+  }
+  return available;
 }
 
 async function copyTable(source, table, client) {
@@ -102,16 +120,27 @@ async function migrate() {
     source = await createSourceConnection();
     await db.initialize({ migrateLegacyPayments: false });
     await ensureTargetIsEmpty();
+    const sourceTables = await getSourceTables(source);
+    for (const table of TABLES) {
+      if (!sourceTables.has(table)) {
+        console.log(`Skipped ${table}: table does not exist in MySQL source`);
+      }
+    }
 
     const client = await db.connect();
     try {
       await client.query('BEGIN');
+      const migrated = [];
       for (const table of TABLES) {
+        if (!sourceTables.has(table)) continue;
         const total = await copyTable(source, table, client);
-        console.log(`Migrated ${table}: ${total} rows`);
+        migrated.push([table, total]);
       }
       await resetIdentitySequences(client);
       await client.query('COMMIT');
+      for (const [table, total] of migrated) {
+        console.log(`Migrated ${table}: ${total} rows`);
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
