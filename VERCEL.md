@@ -43,6 +43,8 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
 1. Push perubahan ke repository Git dan import repository itu di Vercel.
 2. Pilih root repository sebagai **Root Directory**. Vercel membaca
    `vercel.json` untuk web statis, API Functions, schema, dan template PDF.
+   Entry point di `api/<route>/[...path].js` meneruskan URL API bertingkat
+   (misalnya `/api/auth/login`) ke handler Express.
 3. Di **Project Settings → Environment Variables**, tambahkan untuk Preview dan
    Production:
 
