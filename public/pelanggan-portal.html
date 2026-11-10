@@ -334,6 +334,7 @@
       <div class="field"><label>Nomor WhatsApp (Aktif)</label>
         <div class="phone-input"><div class="cc">+62</div><input id="registerTelepon" type="text" placeholder="81234567890"></div>
       </div>
+      <div class="field"><label>Email (Opsional)</label><input id="registerEmail" type="email" autocomplete="email" placeholder="nama@email.com"></div>
       <div class="field"><label>Kata Sandi</label><input id="registerPassword" type="password" minlength="8" placeholder="Minimal 8 karakter"></div>
       <div class="field"><label>Konfirmasi Kata Sandi</label><input id="registerPasswordConfirm" type="password" placeholder="Ulangi kata sandi Anda..."></div>
       <div class="check-row"><input type="checkbox"><span>Saya setuju dengan <b>Syarat &amp; Ketentuan</b> yang berlaku.</span></div>
@@ -1532,8 +1533,14 @@ async function login(){
 async function register(){
   const nama = document.getElementById('registerNama')?.value.trim() || '';
   const telepon = normalizeIdentifier(document.getElementById('registerTelepon')?.value || '');
+  const email = document.getElementById('registerEmail')?.value.trim() || '';
   const password = document.getElementById('registerPassword')?.value || '';
   const passwordConfirm = document.getElementById('registerPasswordConfirm')?.value || '';
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    alert('Format email tidak valid.');
+    return;
+  }
 
   if (!nama || !telepon || !password) {
     alert('Lengkapi nama, nomor WhatsApp, dan password Anda.');
@@ -1554,7 +1561,7 @@ async function register(){
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nama, telepon, password })
+      body: JSON.stringify({ nama, telepon, email, password })
     });
 
     const data = await response.json();
