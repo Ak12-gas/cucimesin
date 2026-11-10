@@ -10,7 +10,11 @@
     },
     {
       "source": "/uploads/:path*",
-      "destination": "/api/uploads/:path*"
+      "destination": "/api/index?__route=uploads/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?__route=:path*"
     }
   ],
   "functions": {
