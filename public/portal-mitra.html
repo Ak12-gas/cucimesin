@@ -744,6 +744,19 @@ function showP(id, el){
   });
 }
 
+async function readApiResponse(response) {
+  const raw = await response.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    const preview = raw.replace(/\s+/g, ' ').trim().slice(0, 180);
+    throw new Error(`Server mengirim respons bukan JSON (HTTP ${response.status}). ${preview || 'Respons kosong.'}`);
+  }
+  if (!response.ok) throw new Error(data.error || `Permintaan gagal (HTTP ${response.status})`);
+  return data;
+}
+
 async function register(){
   const nama_showroom = document.getElementById('registerShowroom')?.value.trim() || '';
   const pic_nama = document.getElementById('registerPic')?.value.trim() || '';
@@ -772,10 +785,7 @@ async function register(){
       body: JSON.stringify({ nama_showroom, pic_nama, telepon, email, password })
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Registrasi mitra gagal');
-    }
+    const data = await readApiResponse(response);
 
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
@@ -803,10 +813,7 @@ async function login(){
       body: JSON.stringify({ identifier, password, role: 'mitra' })
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Login mitra gagal');
-    }
+    const data = await readApiResponse(response);
 
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
