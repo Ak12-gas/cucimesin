@@ -657,6 +657,7 @@ let bookingAvailabilityRequest = 0;
 let bookingAvailabilityDate = '';
 let customerHistoryRows = [];
 let customerPaymentData = { rekening: {}, pembayaran: [] };
+let customerDataRequestInProgress = false;
 
 function migrateCustomerSession(){
   const legacyToken = localStorage.getItem('cucimesin_token');
@@ -804,7 +805,7 @@ function renderHistoryRow(row){
 
   const showDownload = row.jenis === 'spk' && row.status === 'Selesai';
   const downloadBtn = showDownload
-    ? `<button class="btn btn-outline" onclick="downloadSpkPdf(${row.id}, '${escapeHtml(row.no_spk || '')}')">Unduh Nota</button>`
+    ? `<button class="btn btn-outline" onclick="downloadSpkPdf(${row.id}, '${escapeHtml(row.no_spk || '')}')">Unduh Nota / SPK</button>`
     : '';
 
   const amountCell = row.total
@@ -984,28 +985,6 @@ function renderRiwayatTerakhir(rows){
       </div>`;
   }).join('');
 }
-
-  container.innerHTML = recent.map(r => {
-    const tgl = r.created_at
-      ? new Date(r.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-      : '-';
-
-    let tagStyle = '';
-    if (r.status === 'Dikerjakan') tagStyle = 'background:#fde9d3;color:#b0641c;';
-    else if (r.status === 'Menunggu') tagStyle = 'background:#fdf2d0;color:#8a6d1a;';
-    else if (r.status === 'Batal') tagStyle = 'background:#fdecec;color:var(--red);';
-
-    return `
-      <div class="riwayat-item">
-        <div class="ri-ic">🚗</div>
-        <div class="ri-mid">
-          <div class="t">${escapeHtml(r.merk_tipe || 'Kendaraan')} • ${escapeHtml(r.plat_nomor || '-')}</div>
-          <div class="s">${tgl} • ${escapeHtml(r.layanan || '-')}</div>
-        </div>
-        <span class="tag-done" style="${tagStyle}">${escapeHtml(r.status || 'Menunggu')}</span>
-      </div>`;
-  }).join('');
-
 
 function renderPelangganData(rows){
   const list = Array.isArray(rows) ? rows : [];
@@ -1208,7 +1187,8 @@ async function submitCustomerPayment(spkId){
 }
 
 async function loadPelangganData(token){
-  if (!token) return;
+  if (!token || customerDataRequestInProgress) return;
+  customerDataRequestInProgress = true;
   try {
     // PERBAIKAN ANTI-CACHE: Tambahkan timestamp agar browser selalu menarik data real-time
     const urlLive = '/api/pelanggan/me/riwayat?t=' + new Date().getTime();
@@ -1230,6 +1210,8 @@ async function loadPelangganData(token){
     updateProfileStatsFromSpk(rows || []);    
   } catch (error) {
     console.error(error);
+  } finally {
+    customerDataRequestInProgress = false;
   }
 }
 
@@ -1840,6 +1822,12 @@ function updateProfileStatsFromSpk(rows){
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('bookingTanggal')?.addEventListener('change', loadPortalBookingAvailability);
   document.getElementById('bookingWaktu')?.addEventListener('change', validatePortalBookingTime);
+  window.setInterval(() => {
+    if (!document.hidden) loadPelangganData(localStorage.getItem(TOKEN_KEY) || '');
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadPelangganData(localStorage.getItem(TOKEN_KEY) || '');
+  });
   restoreSession();
 });
 </script>
