@@ -1196,9 +1196,8 @@ async function loadPelangganData(token){
     const response = await fetch(urlLive, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!response.ok) throw new Error('Gagal memuat data pelanggan');
-
     const rows = await response.json();
+    if (!response.ok) throw new Error(rows.error || 'Gagal memuat data pesanan');
     const paymentResponse = await fetch('/api/pembayaran/me', {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -1210,6 +1209,13 @@ async function loadPelangganData(token){
     updateProfileStatsFromSpk(rows || []);    
   } catch (error) {
     console.error(error);
+    const message = error.message || 'Data pesanan belum dapat dimuat.';
+    ['homeHistoryList', 'riwayatHistoryList', 'riwayatTerakhirList'].forEach((id) => {
+      const container = document.getElementById(id);
+      if (container) container.textContent = message;
+    });
+    const status = document.getElementById('statusMeta');
+    if (status) status.textContent = message;
   } finally {
     customerDataRequestInProgress = false;
   }

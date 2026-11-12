@@ -80,8 +80,12 @@ async function loadPayableOrder(req, res, next) {
     SELECT s.id, s.no_spk, s.total, s.status, s.mitra_id
     FROM spk s
     INNER JOIN pelanggan p ON p.id = s.pelanggan_id
-    WHERE s.id = ? AND p.user_id = ?
-  `, [spkId, req.user.id]);
+    WHERE s.id = ?
+      AND (p.user_id = ? OR (
+        p.user_id IS NULL
+        AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
+      ))
+  `, [spkId, req.user.id, req.user.id]);
   if (!order) return res.status(404).json({ error: 'SPK tidak ditemukan' });
   if (order.status !== 'Selesai' || order.mitra_id) {
     return res.status(400).json({ error: 'Pembayaran online hanya tersedia untuk SPK pelanggan yang selesai' });
@@ -116,9 +120,15 @@ router.get('/me', auth(['pelanggan']), async (req, res) => {
       FROM spk s
       INNER JOIN pelanggan c ON c.id = s.pelanggan_id
       LEFT JOIN pembayaran p ON p.spk_id = s.id
-      WHERE c.user_id = ? AND s.status = 'Selesai' AND s.mitra_id IS NULL
+      WHERE (
+        c.user_id = ? OR (
+          c.user_id IS NULL
+          AND c.telepon = (SELECT telepon FROM users WHERE id = ?)
+        )
+      )
+        AND s.status = 'Selesai' AND s.mitra_id IS NULL
       ORDER BY s.id DESC
-    `, [req.user.id]),
+    `, [req.user.id, req.user.id]),
     getAccountDetails()
   ]);
   res.json({
@@ -191,9 +201,13 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
         SELECT s.id, s.no_spk, s.total, s.status, s.mitra_id
         FROM spk s
         INNER JOIN pelanggan p ON p.id = s.pelanggan_id
-        WHERE s.id = ? AND p.user_id = ?
+        WHERE s.id = ?
+          AND (p.user_id = ? OR (
+            p.user_id IS NULL
+            AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
+          ))
         FOR UPDATE
-      `, [req.paymentOrder.id, req.user.id], connection);
+      `, [req.paymentOrder.id, req.user.id, req.user.id], connection);
       if (!order || order.status !== 'Selesai' || order.mitra_id) {
         throw httpError(409, 'SPK tidak lagi tersedia untuk pembayaran online');
       }
@@ -264,14 +278,17 @@ router.get('/:id/bukti', auth(['admin', 'pelanggan']), async (req, res) => {
   if (!id) return res.status(400).json({ error: 'ID pembayaran tidak valid' });
 
   const payment = await db.get(`
-    SELECT p.bukti_path, c.user_id
+    SELECT p.bukti_path, c.user_id, c.telepon AS pelanggan_telepon, u.telepon AS account_telepon
     FROM pembayaran p
     INNER JOIN spk s ON s.id = p.spk_id
     LEFT JOIN pelanggan c ON c.id = s.pelanggan_id
+    LEFT JOIN users u ON u.id = ?
     WHERE p.id = ?
-  `, [id]);
+  `, [req.user.id, id]);
   if (!payment || !payment.bukti_path) return res.status(404).json({ error: 'Bukti pembayaran tidak ditemukan' });
-  if (req.user.role !== 'admin' && Number(payment.user_id) !== Number(req.user.id)) {
+  const isOwner = Number(payment.user_id) === Number(req.user.id) ||
+    (payment.user_id === null && payment.pelanggan_telepon === payment.account_telepon);
+  if (req.user.role !== 'admin' && !isOwner) {
     return res.status(403).json({ error: 'Anda tidak memiliki akses ke bukti pembayaran ini' });
   }
 

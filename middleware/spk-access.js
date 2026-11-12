@@ -42,7 +42,18 @@ async function authorizeSpk(req, res, next) {
   }
 
   if (user.role === 'pelanggan') {
-    const pelanggan = await db.get('SELECT id FROM pelanggan WHERE user_id=?', [user.id]);
+    const pelanggan = await db.get(`
+      SELECT p.id
+      FROM pelanggan p
+      WHERE p.id = ?
+        AND (
+          p.user_id = ?
+          OR (
+            p.user_id IS NULL
+            AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
+          )
+        )
+    `, [spk.pelanggan_id, user.id, user.id]);
 
     if (!pelanggan || pelanggan.id !== spk.pelanggan_id) {
       return res.status(403).json({ error: 'Anda tidak memiliki akses ke SPK ini' });

@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
-const { defaultChecklist } = require('../utils/helper');
+const { defaultChecklist, generateNoSPK } = require('../utils/helper');
 const router = express.Router();
 
 // Fungsi bantuan tetap dipertahankan
@@ -183,84 +183,102 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
     }
 
     const bookingId = Number(req.params.id);
-    const booking = await db.get('SELECT * FROM booking WHERE id=?', [bookingId]);
-
-    if (!booking) {
-      return res.status(404).json({ error: 'Booking tidak ditemukan' });
+    if (!Number.isSafeInteger(bookingId) || bookingId < 1) {
+      return res.status(400).json({ error: 'ID booking tidak valid' });
     }
 
-    if (booking.status === 'Batal' && newStatus !== 'Batal' &&
-        (!booking.tanggal || !booking.waktu)) {
-      return res.status(409).json({ error: 'Booking ini tidak memiliki jadwal valid untuk diaktifkan kembali' });
-    }
+    let updatedBooking;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        updatedBooking = await db.transaction(async (connection) => {
+          const booking = await db.get('SELECT * FROM booking WHERE id=? FOR UPDATE', [bookingId], connection);
+          if (!booking) throw httpError(404, 'Booking tidak ditemukan');
 
-    if (booking.status === 'Batal' && newStatus !== 'Batal' &&
-        !(newStatus === 'Dikonversi' && !booking.spk_id)) {
-      const updatedBooking = await db.transaction(async (connection) => {
-        await lockBookingDate(connection, booking.tanggal);
-        await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
-        await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
-        return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
-      });
-      return res.json(updatedBooking);
-    }
-
-    // OTOMASI: Jika Admin memilih 'Dikonversi' dan SPK belum pernah dibuat
-    if (newStatus === 'Dikonversi' && !booking.spk_id) {
-      
-      // 1. Generate Nomor SPK Otomatis
-      const dateStr = new Date().toISOString().slice(0, 7).replace('-', ''); 
-      const countQuery = await db.get('SELECT COUNT(*) as total FROM spk WHERE no_spk LIKE ?', [`SPK-${dateStr}-%`]);
-      const noSpk = `SPK-${dateStr}-${String(countQuery.total + 1).padStart(3, '0')}`;
-
-      // 2. CARI ATAU BUAT PELANGGAN BARU AGAR DATA SINKRON DI ADMIN
-      let pelangganId = null;
-      if (booking.telepon) {
-        const p = await db.get('SELECT id, user_id FROM pelanggan WHERE telepon=?', [booking.telepon]);
-        if (p) {
-          pelangganId = p.id;
-          // PERBAIKAN: Tautkan user_id jika sebelumnya kosong agar SPK tidak "gaib" di layar pelanggan
-          if (!p.user_id && booking.user_id) {
-            await db.run('UPDATE pelanggan SET user_id=? WHERE id=?', [booking.user_id, p.id]);
+          if (booking.status === 'Batal' && newStatus !== 'Batal' &&
+              (!booking.tanggal || !booking.waktu)) {
+            throw httpError(409, 'Booking ini tidak memiliki jadwal valid untuk diaktifkan kembali');
           }
-        } else {
-          // PERBAIKAN: Otomatis daftarkan pelanggan baru beserta user_id-nya
-          const resP = await db.run('INSERT INTO pelanggan (user_id, nama, telepon, email, kategori) VALUES (?, ?, ?, ?, ?)', 
-                                   [booking.user_id || null, booking.nama, booking.telepon, booking.email || null, 'Normal']);
-          pelangganId = resP.insertId;
-        }
+
+          if (booking.status === 'Batal' && newStatus !== 'Batal' &&
+              !(newStatus === 'Dikonversi' && !booking.spk_id)) {
+            await lockBookingDate(connection, booking.tanggal);
+            await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
+            await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
+            return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
+          }
+
+          if (newStatus === 'Dikonversi' && !booking.spk_id) {
+            if (booking.status === 'Batal') {
+              await lockBookingDate(connection, booking.tanggal);
+              await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
+            }
+
+            if (booking.user_id) {
+              await db.get('SELECT id FROM users WHERE id=? FOR UPDATE', [booking.user_id], connection);
+            }
+
+            let pelanggan = booking.user_id
+              ? await db.get('SELECT id, user_id FROM pelanggan WHERE user_id=? LIMIT 1', [booking.user_id], connection)
+              : null;
+
+            if (!pelanggan) {
+              const phoneParams = booking.user_id
+                ? [booking.telepon, booking.user_id]
+                : [booking.telepon];
+              const userFilter = booking.user_id
+                ? 'AND (user_id IS NULL OR user_id=?)'
+                : 'AND user_id IS NULL';
+              pelanggan = await db.get(`
+                SELECT id, user_id FROM pelanggan
+                WHERE telepon=? ${userFilter}
+                ORDER BY id DESC LIMIT 1
+              `, phoneParams, connection);
+            }
+
+            let pelangganId;
+            if (pelanggan) {
+              pelangganId = pelanggan.id;
+              if (!pelanggan.user_id && booking.user_id) {
+                await db.run('UPDATE pelanggan SET user_id=? WHERE id=?', [booking.user_id, pelanggan.id], connection);
+              }
+            } else {
+              const result = await db.run(`
+                INSERT INTO pelanggan (user_id, nama, telepon, email, kategori)
+                VALUES (?, ?, ?, ?, 'Normal')
+              `, [booking.user_id || null, booking.nama, booking.telepon, booking.email || null], connection);
+              pelangganId = result.insertId;
+            }
+
+            const layanan = await db.get('SELECT harga FROM layanan WHERE id=?', [booking.layanan_id], connection);
+            if (!layanan) throw httpError(409, 'Layanan booking sudah tidak tersedia');
+
+            const noSpk = await generateNoSPK(db, connection);
+            const result = await db.run(`
+              INSERT INTO spk (no_spk, pelanggan_id, plat_nomor, merk_tipe, layanan_id, harga, total, status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu')
+            `, [noSpk, pelangganId, booking.plat_nomor, booking.merk_tipe, booking.layanan_id, layanan.harga, layanan.harga], connection);
+
+            for (const [urutan, item] of defaultChecklist().entries()) {
+              await db.run(
+                'INSERT INTO spk_checklist (spk_id, item, urutan) VALUES (?, ?, ?)',
+                [result.insertId, item, urutan],
+                connection
+              );
+            }
+
+            await db.run('UPDATE booking SET status=?, spk_id=? WHERE id=?', [newStatus, result.insertId, bookingId], connection);
+          } else {
+            await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
+          }
+
+          return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
+        });
+        break;
+      } catch (error) {
+        if (error.code !== 'ER_DUP_ENTRY' || attempt === 4) throw error;
       }
-
-      // 3. Ambil Harga Layanan
-      const layanan = await db.get('SELECT harga FROM layanan WHERE id=?', [booking.layanan_id]);
-      const harga = layanan ? layanan.harga : 0;
-
-      // 4. Buat SPK Baru secara otomatis
-      const rSpk = await db.transaction(async (connection) => {
-        if (booking.status === 'Batal') {
-          await lockBookingDate(connection, booking.tanggal);
-          await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
-        }
-
-        const result = await db.run(`
-          INSERT INTO spk (no_spk, pelanggan_id, plat_nomor, merk_tipe, layanan_id, harga, total, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu')
-        `, [noSpk, pelangganId, booking.plat_nomor, booking.merk_tipe, booking.layanan_id, harga, harga], connection);
-
-        for (const [urutan, item] of defaultChecklist().entries()) {
-          await db.run('INSERT INTO spk_checklist (spk_id, item, urutan) VALUES (?, ?, ?)', [result.insertId, item, urutan], connection);
-        }
-
-        await db.run('UPDATE booking SET status=?, spk_id=? WHERE id=?', [newStatus, result.insertId, bookingId], connection);
-        return result;
-      });
-      
-    } else {
-      // Jika statusnya hanya Baru/Diproses/Batal
-      await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId]);
     }
-    
-    const updatedBooking = await db.get('SELECT * FROM booking WHERE id=?', [bookingId]);
+
     res.json(updatedBooking);
   } catch (error) {
     next(error);
