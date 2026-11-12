@@ -140,7 +140,7 @@ router.get('/me/riwayat', auth(['pelanggan']), async (req, res) => {
   `, [req.user.id, telepon]);
 
   const bookingRows = await db.all(`
-    SELECT b.id, CONCAT('BKG-', LPAD(b.id, 4, '0')) AS no_spk, b.plat_nomor, b.merk_tipe, b.status,
+    SELECT b.id, CONCAT('BKG-', LPAD(CAST(b.id AS TEXT), 4, '0')) AS no_spk, b.plat_nomor, b.merk_tipe, b.status,
            NULL AS total, b.created_at, b.tanggal, b.waktu, l.nama AS layanan, 'booking' AS jenis
     FROM booking b
     LEFT JOIN layanan l ON l.id = b.layanan_id

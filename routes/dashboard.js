@@ -59,7 +59,7 @@ router.get('/antrian', async (req, res) => {
       UNION ALL
 
       -- Data Kendaraan dari Booking Online (Belum datang / Belum dikonversi)
-      SELECT b.id, CONCAT('BKG-', LPAD(b.id, 4, '0')) AS no_spk, b.plat_nomor, b.status, b.created_at, NULL AS waktu_mulai,
+      SELECT b.id, CONCAT('BKG-', LPAD(CAST(b.id AS TEXT), 4, '0')) AS no_spk, b.plat_nomor, b.status, b.created_at, NULL AS waktu_mulai,
              b.nama AS pelanggan,
              'Normal' AS kategori,
              l.nama AS layanan,
