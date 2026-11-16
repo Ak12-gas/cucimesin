@@ -4,6 +4,11 @@ const auth = require('../middleware/auth');
 const { toLocalDateString } = require('../utils/helper');
 const router = express.Router();
 
+router.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 router.use(auth(['admin']));
 
 function isValidDate(value) {

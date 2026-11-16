@@ -1557,9 +1557,9 @@ async function loadKeuanganData(){
   try {
     const params = new URLSearchParams({ dari: fromInput.value, sampai: toInput.value });
     const [summaryResponse, analysisResponse, transactionsResponse] = await Promise.all([
-      fetch(`/api/keuangan/ringkasan?${params}`, { headers: authHeaders() }),
-      fetch(`/api/keuangan/analisis?${params}`, { headers: authHeaders() }),
-      fetch(`/api/keuangan/transaksi?${params}`, { headers: authHeaders() })
+      fetch(`/api/keuangan/ringkasan?${params}`, { headers: authHeaders(), cache: 'no-store' }),
+      fetch(`/api/keuangan/analisis?${params}`, { headers: authHeaders(), cache: 'no-store' }),
+      fetch(`/api/keuangan/transaksi?${params}`, { headers: authHeaders(), cache: 'no-store' })
     ]);
     const [summary, analysis, transactions] = await Promise.all([
       summaryResponse.json(),
