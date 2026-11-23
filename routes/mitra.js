@@ -5,17 +5,16 @@ const auth = require('../middleware/auth');
 const rateLimit = require('../middleware/rate-limit');
 const { signUser } = require('../utils/security');
 const { toLocalDateString, generateNoSPK, generateNoInvoice, defaultChecklist } = require('../utils/helper');
+const { isValidAppDate, parseAppDateTime } = require('../utils/timezone');
 const { generateMitraInvoicePdf } = require('../services/pdfservice');
 const router = express.Router();
 const publicAuthLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 const publicUser = (u) => ({ id: u.id, nama: u.nama, email: u.email, telepon: u.telepon, role: u.role, mitra_id: u.mitra_id || null });
 
 function validSchedule(tanggal, waktu) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(tanggal || '');
-  if (!match || !/^([01]\d|2[0-3]):[0-5]\d$/.test(waktu || '')) return false;
-  const [hour, minute] = waktu.split(':').map(Number);
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), hour, minute);
-  return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]) && date.getHours() === hour && date.getMinutes() === minute && date >= new Date();
+  if (!isValidAppDate(tanggal) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(waktu || '')) return false;
+  const scheduled = parseAppDateTime(`${tanggal} ${waktu}:00`);
+  return Boolean(scheduled && scheduled.getTime() > Date.now());
 }
 
 router.post('/register', publicAuthLimit, async (req, res) => {

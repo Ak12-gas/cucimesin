@@ -1,7 +1,8 @@
 const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
-const { toLocalDateString } = require('../utils/helper');
+const { toLocalDateString, localizedDateDaysAgo } = require('../utils/helper');
+const { addAppDays } = require('../utils/timezone');
 const router = express.Router();
 
 router.use(auth(['admin']));
@@ -9,7 +10,7 @@ router.use(auth(['admin']));
 // 1. STATISTIK: Gabungkan total SPK dan Booking yang belum dikonversi
 router.get('/stats', async (req, res) => {
   const today = toLocalDateString();
-  const yesterday = toLocalDateString(new Date(Date.now() - 86400000));
+  const yesterday = localizedDateDaysAgo(1);
 
   const totalHariIni = (await db.get(`
     SELECT 
@@ -103,8 +104,7 @@ router.get('/tren', async (req, res) => {
 
   const result = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const key = toLocalDateString(d);
+    const key = toLocalDateString(addAppDays(new Date(), -i));
     const found = rows.find(r => String(r.tgl).slice(0, 10) === key);
     result.push({ tanggal: key, jumlah: found ? Number(found.jumlah) : 0 });
   }

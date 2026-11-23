@@ -44,12 +44,8 @@ router.get('/me/spk', auth(['pelanggan']), async (req, res) => {
     LEFT JOIN layanan l ON l.id = spk.layanan_id
     LEFT JOIN pelanggan p ON p.id = spk.pelanggan_id
     WHERE p.user_id = ?
-       OR (
-         p.user_id IS NULL
-         AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
-       )
     ORDER BY spk.id DESC
-  `, [req.user.id, req.user.id]);
+  `, [req.user.id]);
   res.json(rows);
 });
 
@@ -126,9 +122,6 @@ router.get('/list', auth(['admin']), async (req, res) => {
 });
 
 router.get('/me/riwayat', auth(['pelanggan']), async (req, res) => {
-  const user = await db.get('SELECT id, telepon FROM users WHERE id=?', [req.user.id]);
-  const telepon = user?.telepon || '';
-
   const spkRows = await db.all(`
     SELECT spk.id, spk.no_spk, spk.plat_nomor, spk.merk_tipe, spk.status, spk.total,
            spk.created_at, NULL AS tanggal, NULL AS waktu, l.nama AS layanan, 'spk' AS jenis
@@ -136,17 +129,16 @@ router.get('/me/riwayat', auth(['pelanggan']), async (req, res) => {
     LEFT JOIN pelanggan p ON p.id = spk.pelanggan_id
     LEFT JOIN layanan l ON l.id = spk.layanan_id
     WHERE p.user_id = ?
-       OR (p.user_id IS NULL AND p.telepon = ?)
-  `, [req.user.id, telepon]);
+  `, [req.user.id]);
 
   const bookingRows = await db.all(`
     SELECT b.id, CONCAT('BKG-', LPAD(CAST(b.id AS TEXT), 4, '0')) AS no_spk, b.plat_nomor, b.merk_tipe, b.status,
            NULL AS total, b.created_at, b.tanggal, b.waktu, l.nama AS layanan, 'booking' AS jenis
     FROM booking b
     LEFT JOIN layanan l ON l.id = b.layanan_id
-    WHERE (b.user_id = ? OR (b.user_id IS NULL AND b.telepon = ?))
+    WHERE b.user_id = ?
       AND b.spk_id IS NULL
-  `, [req.user.id, telepon]);
+  `, [req.user.id]);
 
   const merged = [...spkRows, ...bookingRows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   res.json(merged);

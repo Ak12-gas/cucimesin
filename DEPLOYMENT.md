@@ -21,9 +21,18 @@ Tambahkan variabel berikut pada service aplikasi:
 ```text
 DATABASE_URL=<Supabase Transaction pooler connection string>
 DB_CONNECTION_LIMIT=5
+APP_TIME_ZONE=Asia/Jakarta
 JWT_SECRET=<secret acak yang panjang>
+RESET_WEBHOOK_URL=<opsional, pengirim kode reset password>
+RESET_WEBHOOK_TOKEN=<opsional>
 UPLOAD_DIR=/data/uploads
 PAYMENT_UPLOAD_DIR=/data/payment-proofs
+# Opsional tetapi disarankan agar upload tidak terikat pada volume lokal:
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service role key Supabase>
+SUPABASE_STORAGE_BUCKET=cucimesin
+UPSTASH_REDIS_REST_URL=<opsional, untuk rate limit bersama>
+UPSTASH_REDIS_REST_TOKEN=<opsional>
 ```
 
 Jangan isi `PORT`; Railway menyediakan port service. Buat nilai `JWT_SECRET`
@@ -49,7 +58,9 @@ aplikasi berhasil diperiksa.
 Database SQLite lama di `data/cucimesin.db` bukan sumber aktif backend dan tidak
 termasuk migrasi. File foto SPK di `uploads/` dan bukti pembayaran di
 `data/payment-proofs/` juga tidak ikut tersalin oleh migrasi database. Salin
-file-file tersebut ke storage persisten jika ingin mempertahankannya.
+file-file tersebut ke storage persisten jika ingin mempertahankannya. Untuk
+Supabase Storage, `npm run migrate:uploads` dapat menyalin file lama (dry-run
+dulu, lalu `npm run migrate:uploads -- --apply`) tanpa mengubah path di database.
 
 ## 4. Deploy dan verifikasi
 

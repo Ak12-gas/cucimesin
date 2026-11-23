@@ -1,7 +1,10 @@
 const express = require('express');
+const crypto = require('crypto');
+const path = require('path');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const storage = require('../services/storage');
 const { loadSpk, authorizeSpk } = require('../middleware/spk-access');
 const { generateNoSPK, defaultChecklist, toLocalDateTimeString } = require('../utils/helper');
 const { generateSPKPdf } = require('../services/pdfservice');
@@ -214,16 +217,33 @@ router.post('/', auth(['admin']), async (req, res, next) => {
 
       if (!pelangganId && pelanggan_nama && pelanggan_telepon) {
         const existingPelanggan = await db.get(
-          'SELECT id FROM pelanggan WHERE telepon=? ORDER BY id DESC LIMIT 1',
+          `SELECT id, user_id FROM pelanggan
+           WHERE telepon=?
+           ORDER BY (user_id IS NOT NULL) DESC, id ASC
+           LIMIT 1`,
           [pelanggan_telepon], connection
         );
         if (existingPelanggan) {
           pelangganId = existingPelanggan.id;
+          if (!existingPelanggan.user_id) {
+            const customerUser = await db.get(
+              "SELECT id FROM users WHERE telepon=? AND role='pelanggan'",
+              [pelanggan_telepon], connection
+            );
+            if (customerUser) {
+              await db.run('UPDATE pelanggan SET user_id=? WHERE id=? AND user_id IS NULL',
+                [customerUser.id, pelangganId], connection);
+            }
+          }
         } else {
+          const customerUser = await db.get(
+            "SELECT id FROM users WHERE telepon=? AND role='pelanggan'",
+            [pelanggan_telepon], connection
+          );
           const pelangganResult = await db.run(`
-            INSERT INTO pelanggan (nama, telepon, email, kategori)
-            VALUES (?, ?, ?, 'Normal')
-          `, [pelanggan_nama, pelanggan_telepon, pelanggan_email || null], connection);
+            INSERT INTO pelanggan (user_id, nama, telepon, email, kategori)
+            VALUES (?, ?, ?, ?, 'Normal')
+          `, [customerUser?.id || null, pelanggan_nama, pelanggan_telepon, pelanggan_email || null], connection);
           pelangganId = Number(pelangganResult.insertId);
         }
       }
@@ -455,20 +475,35 @@ router.post('/:id/foto', auth(['teknisi', 'admin']), loadSpk, authorizeSpk, uplo
     return res.status(400).json({ error: 'File foto wajib' });
   }
 
-  if (!upload.hasValidImageSignature(req.file.path, req.file.mimetype)) {
-    require('fs').unlinkSync(req.file.path);
+  if (!upload.hasValidImageSignature(req.file.buffer, req.file.mimetype)) {
     return res.status(400).json({ error: 'Isi file foto tidak valid' });
   }
 
-  const r = await db.run('INSERT INTO spk_foto (spk_id, tipe, path) VALUES (?,?,?)', [req.params.id, tipe, `/uploads/${req.file.filename}`]);
+  const extension = path.extname(req.file.originalname).toLowerCase();
+  const objectPath = `spk/${req.params.id}/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
+  let storedPath;
+  try {
+    storedPath = await storage.upload(objectPath, req.file.buffer, req.file.mimetype);
+  } catch (error) {
+    console.error('[UPLOAD] gagal menyimpan foto SPK:', error.message);
+    return res.status(503).json({ error: 'Gagal menyimpan foto. Coba lagi nanti.' });
+  }
 
-  await writeAudit('spk_foto', Number(r.insertId), 'upload_foto', req.user, {
-    spk_id: Number(req.params.id),
-    tipe,
-    path: `/uploads/${req.file.filename}`
-  });
+  try {
+    const r = await db.run('INSERT INTO spk_foto (spk_id, tipe, path) VALUES (?,?,?)',
+      [req.params.id, tipe, storedPath]);
 
-  res.status(201).json(await db.get('SELECT * FROM spk_foto WHERE id=?', [r.insertId]));
+    await writeAudit('spk_foto', Number(r.insertId), 'upload_foto', req.user, {
+      spk_id: Number(req.params.id),
+      tipe,
+      path: storedPath
+    });
+
+    res.status(201).json(await db.get('SELECT * FROM spk_foto WHERE id=?', [r.insertId]));
+  } catch (error) {
+    await storage.remove(objectPath).catch(() => {});
+    throw error;
+  }
 });
 
 module.exports = router;

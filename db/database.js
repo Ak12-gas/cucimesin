@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs/promises');
 const path = require('path');
 const { Pool, types } = require('pg');
+const { APP_TIME_ZONE } = require('../utils/timezone');
 
 types.setTypeParser(1082, (value) => value);
 types.setTypeParser(1083, (value) => value);
@@ -21,7 +22,9 @@ function createPool() {
     connectionString,
     max: Number(process.env.DB_CONNECTION_LIMIT || 5),
     idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 10000
+    connectionTimeoutMillis: 10000,
+    // Startup parameter, jadi tidak ada race dengan query pertama.
+    options: `-c timezone=${APP_TIME_ZONE}`
   });
 }
 
@@ -127,11 +130,48 @@ async function transaction(callback) {
   }
 }
 
+const CUSTOMER_LINK_STATEMENTS = [
+  // Hanya hubungkan pelanggan yang nomornya unik agar tidak salah mengaitkan akun.
+  `UPDATE pelanggan p
+   SET user_id = u.id
+   FROM users u
+   WHERE p.user_id IS NULL
+     AND u.role = 'pelanggan'
+     AND p.telepon IS NOT NULL
+     AND p.telepon = u.telepon
+     AND NOT EXISTS (
+       SELECT 1 FROM pelanggan dup
+       WHERE dup.telepon = p.telepon AND dup.id <> p.id
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM pelanggan linked WHERE linked.user_id = u.id
+     )`,
+  `UPDATE booking b
+   SET user_id = u.id
+   FROM users u
+   WHERE b.user_id IS NULL
+     AND u.role = 'pelanggan'
+     AND b.telepon IS NOT NULL
+     AND b.telepon = u.telepon
+     AND NOT EXISTS (
+       SELECT 1 FROM users dup
+       WHERE dup.role = 'pelanggan'
+         AND dup.telepon = b.telepon
+         AND dup.id <> u.id
+     )`
+];
+
+async function backfillCustomerLinks(execute = (sql) => getPool().query(sql)) {
+  for (const statement of CUSTOMER_LINK_STATEMENTS) await execute(statement);
+}
+
 async function initialize(options = {}) {
   const schema = await fs.readFile(path.join(__dirname, 'schema-supabase.sql'), 'utf8');
   for (const statement of schema.split(/;\s*(?:\r?\n|$)/).map((part) => part.trim()).filter(Boolean)) {
     await getPool().query(statement);
   }
+
+  await backfillCustomerLinks();
 
   if (options.migrateLegacyPayments !== false) {
     await getPool().query(`
@@ -160,4 +200,4 @@ function connect() {
   return getPool().connect();
 }
 
-module.exports = { query, get, all, run, transaction, initialize, close, connect, toPostgresSql };
+module.exports = { query, get, all, run, transaction, initialize, backfillCustomerLinks, close, connect, toPostgresSql };

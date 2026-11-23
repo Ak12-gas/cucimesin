@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
 const { toLocalDateString } = require('../utils/helper');
+const { addAppDays, isValidAppDate, parseAppDateTime } = require('../utils/timezone');
 const router = express.Router();
 
 router.use(auth(['admin']));
@@ -10,11 +11,7 @@ router.get('/ringkasan', async (req, res) => {
   const today = toLocalDateString();
   const dari = req.query.dari || today.slice(0, 8) + '01';
   const sampai = req.query.sampai || today;
-  const isValidDate = (value) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-    const date = new Date(`${value}T12:00:00`);
-    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-  };
+  const isValidDate = isValidAppDate;
 
   if (!isValidDate(dari) || !isValidDate(sampai)) {
     return res.status(400).json({ error: 'Format periode harus YYYY-MM-DD' });
@@ -53,12 +50,12 @@ router.get('/ringkasan', async (req, res) => {
 
   const dailyByDate = new Map(dailyRows.map((row) => [String(row.tanggal).slice(0, 10), Number(row.jumlah)]));
   const harian = [];
-  const cursor = new Date(`${dari}T12:00:00`);
-  const lastDay = new Date(`${sampai}T12:00:00`);
-  while (cursor <= lastDay) {
+  let cursor = parseAppDateTime(`${dari} 12:00:00`);
+  const lastDay = parseAppDateTime(`${sampai} 12:00:00`);
+  while (cursor && cursor <= lastDay) {
     const tanggal = toLocalDateString(cursor);
     harian.push({ tanggal, jumlah: dailyByDate.get(tanggal) || 0 });
-    cursor.setDate(cursor.getDate() + 1);
+    cursor = addAppDays(cursor, 1);
   }
 
   res.json({

@@ -51,7 +51,16 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
    ```text
    DATABASE_URL=<Supabase Transaction pooler connection string>
    DB_CONNECTION_LIMIT=1
+   APP_TIME_ZONE=Asia/Jakarta
    JWT_SECRET=<secret acak minimal 32 byte>
+   RESET_WEBHOOK_URL=<opsional, pengirim kode reset password>
+   RESET_WEBHOOK_TOKEN=<opsional>
+   SUPABASE_URL=https://<project>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<service role key Supabase>
+   SUPABASE_STORAGE_BUCKET=cucimesin
+   TRUST_PROXY=1
+   UPSTASH_REDIS_REST_URL=<opsional, untuk rate limit bersama>
+   UPSTASH_REDIS_REST_TOKEN=<opsional>
    ```
 
    Buat `JWT_SECRET` dengan:
@@ -62,20 +71,27 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
 
    Jangan masukkan `SOURCE_DB_*` ke Vercel; variabel itu hanya untuk migrasi
    lokal. Jangan mengisi `PORT`; Vercel mengaturnya. `CORS_ORIGINS` tidak
-   diperlukan jika frontend dan API memakai domain yang sama.
+   diperlukan jika frontend dan API memakai domain yang sama. `TRUST_PROXY=1`
+   membuat `req.ip` mengikuti `X-Forwarded-For` Vercel; tanpa itu semua user
+   bisa dianggap berasal dari IP proxy yang sama oleh rate limiter. Buat bucket
+   `SUPABASE_STORAGE_BUCKET` dengan akses public untuk foto SPK; bukti pembayaran
+   tetap lewat endpoint API yang diautentikasi. Tanpa `UPSTASH_*`, rate limit
+   hanya berlaku per instance function.
 4. Deploy. API memastikan skema tersedia saat mulai, sehingga database user
    harus diizinkan membuat tabel dan index. Setelah deploy, buka
    `https://<domain>/api`; respons yang diharapkan memuat `"status":"ok"`.
 
 ## Batasan dan verifikasi
 
-- Database dipindahkan, tetapi file foto SPK dan bukti pembayaran tidak ikut
-  disalin oleh migrasi database. Backend saat ini menyimpan upload di disk;
-  Vercel hanya menyediakan penyimpanan sementara di `/tmp`, yang dapat hilang
-  dan tidak dibagikan antar-instance. Sebelum mengandalkan upload di production,
-  pindahkan file tersebut ke Supabase Storage atau object storage persisten.
-- Batas request/response Vercel adalah 4.5 MB. Upload aplikasi dapat mencapai
-  5 MB, sehingga file besar mungkin ditolak sebelum mencapai API.
+- Database dipindahkan, tetapi file foto SPK dan bukti pembayaran lama tidak ikut
+  disalin oleh migrasi database. Upload baru disimpan ke Supabase Storage jika
+  `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` diisi; tanpa keduanya backend
+  jatuh ke `/tmp` yang ephemeral dan tidak dibagikan antar-instance. Untuk
+  menyalin file lama ke Supabase Storage tanpa mengubah path di database, jalankan
+  `npm run migrate:uploads` (dry-run) lalu `npm run migrate:uploads -- --apply`.
+- Batas request/response Vercel adalah 4.5 MB, lebih kecil dari batas aplikasi
+  5 MB. Saat `VERCEL` diset, batas multer diturunkan menjadi 4 MB agar file yang
+  terlalu besar ditolak oleh API dengan respons JSON, bukan oleh platform.
 - Fungsi PDF memakai Chromium yang dibundel untuk runtime Vercel dan tunduk pada
   batas durasi function (`maxDuration` 60 detik).
 - Setelah deploy, uji login, booking, pembuatan SPK, pembayaran, laporan, dan PDF.

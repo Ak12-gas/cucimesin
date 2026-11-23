@@ -1,44 +1,23 @@
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
-const multer = require('multer');
 const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
-const { hasValidImageSignature } = require('../middleware/upload');
+const upload = require('../middleware/upload');
+const storage = require('../services/storage');
 const router = express.Router();
 
-const proofDir = path.resolve(
-  process.env.PAYMENT_UPLOAD_DIR || path.join(__dirname, '..', 'data', 'payment-proofs')
-);
-fs.mkdirSync(proofDir, { recursive: true });
+const proofUpload = upload.single('bukti');
 
-const allowedTypes = new Map([
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-  ['.png', 'image/png'],
-  ['.webp', 'image/webp']
-]);
-
-const proofUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, callback) => callback(null, proofDir),
-    filename: (_req, file, callback) => {
-      const extension = path.extname(file.originalname).toLowerCase();
-      callback(null, `${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`);
-    }
-  }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (allowedTypes.get(path.extname(file.originalname).toLowerCase()) === file.mimetype) {
-      callback(null, true);
-      return;
-    }
-    const error = new Error('Bukti pembayaran harus berupa gambar JPG, PNG, atau WebP.');
-    error.code = 'INVALID_FILE_TYPE';
-    callback(error);
+function proofObjectPath(value) {
+  if (!value) return null;
+  const raw = String(value);
+  // Bukti lama disimpan sebagai nama file polos di PAYMENT_UPLOAD_DIR.
+  if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/') && !raw.includes('/')) {
+    return `payment-proofs/${path.basename(raw)}`;
   }
-});
+  return storage.toObjectPath(raw);
+}
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -52,14 +31,13 @@ function parseId(value) {
   return Number.isSafeInteger(id) ? id : null;
 }
 
-async function removeProof(filePath) {
-  if (!filePath) return;
+async function removeProof(value) {
+  const objectPath = proofObjectPath(value);
+  if (!objectPath) return;
   try {
-    await fs.promises.unlink(filePath);
+    await storage.remove(objectPath);
   } catch (error) {
-    if (error.code !== 'ENOENT') {
-      console.error('Gagal menghapus file bukti pembayaran:', error);
-    }
+    console.error('Gagal menghapus bukti pembayaran:', error.message);
   }
 }
 
@@ -80,12 +58,8 @@ async function loadPayableOrder(req, res, next) {
     SELECT s.id, s.no_spk, s.total, s.status, s.mitra_id
     FROM spk s
     INNER JOIN pelanggan p ON p.id = s.pelanggan_id
-    WHERE s.id = ?
-      AND (p.user_id = ? OR (
-        p.user_id IS NULL
-        AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
-      ))
-  `, [spkId, req.user.id, req.user.id]);
+    WHERE s.id = ? AND p.user_id = ?
+  `, [spkId, req.user.id]);
   if (!order) return res.status(404).json({ error: 'SPK tidak ditemukan' });
   if (order.status !== 'Selesai' || order.mitra_id) {
     return res.status(400).json({ error: 'Pembayaran online hanya tersedia untuk SPK pelanggan yang selesai' });
@@ -120,15 +94,10 @@ router.get('/me', auth(['pelanggan']), async (req, res) => {
       FROM spk s
       INNER JOIN pelanggan c ON c.id = s.pelanggan_id
       LEFT JOIN pembayaran p ON p.spk_id = s.id
-      WHERE (
-        c.user_id = ? OR (
-          c.user_id IS NULL
-          AND c.telepon = (SELECT telepon FROM users WHERE id = ?)
-        )
-      )
+      WHERE c.user_id = ?
         AND s.status = 'Selesai' AND s.mitra_id IS NULL
       ORDER BY s.id DESC
-    `, [req.user.id, req.user.id]),
+    `, [req.user.id]),
     getAccountDetails()
   ]);
   res.json({
@@ -176,22 +145,25 @@ router.put('/rekening', auth(['admin']), async (req, res) => {
 });
 
 router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, next) => {
-  proofUpload.single('bukti')(req, res, (error) => {
+  proofUpload(req, res, (error) => {
     if (error) return next(error);
-    next();
+    return next();
   });
 }, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Pilih file bukti pembayaran terlebih dahulu' });
-  let validSignature;
-  try {
-    validSignature = hasValidImageSignature(req.file.path, req.file.mimetype);
-  } catch (error) {
-    await removeProof(req.file.path);
-    throw error;
-  }
+
+  const validSignature = upload.hasValidImageSignature(req.file.buffer, req.file.mimetype);
   if (!validSignature) {
-    await removeProof(req.file.path);
     return res.status(400).json({ error: 'Isi file tidak sesuai dengan format gambar yang dipilih' });
+  }
+
+  const extension = path.extname(req.file.originalname).toLowerCase();
+  const objectPath = `payment-proofs/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
+  try {
+    await storage.upload(objectPath, req.file.buffer, req.file.mimetype);
+  } catch (error) {
+    console.error('[UPLOAD] gagal menyimpan bukti pembayaran:', error.message);
+    return res.status(503).json({ error: 'Gagal menyimpan bukti. Coba lagi nanti.' });
   }
 
   let previousProof;
@@ -201,13 +173,9 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
         SELECT s.id, s.no_spk, s.total, s.status, s.mitra_id
         FROM spk s
         INNER JOIN pelanggan p ON p.id = s.pelanggan_id
-        WHERE s.id = ?
-          AND (p.user_id = ? OR (
-            p.user_id IS NULL
-            AND p.telepon = (SELECT telepon FROM users WHERE id = ?)
-          ))
+        WHERE s.id = ? AND p.user_id = ?
         FOR UPDATE
-      `, [req.paymentOrder.id, req.user.id, req.user.id], connection);
+      `, [req.paymentOrder.id, req.user.id], connection);
       if (!order || order.status !== 'Selesai' || order.mitra_id) {
         throw httpError(409, 'SPK tidak lagi tersedia untuk pembayaran online');
       }
@@ -231,18 +199,18 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
               status = 'Menunggu Konfirmasi', catatan_admin = NULL,
               submitted_at = CURRENT_TIMESTAMP, confirmed_at = NULL, confirmed_by = NULL
           WHERE id = ?
-        `, [Number(order.total), req.file.filename, existing.id], connection);
+        `, [Number(order.total), objectPath, existing.id], connection);
         return db.get('SELECT * FROM pembayaran WHERE id = ?', [existing.id], connection);
       }
 
       const result = await db.run(`
         INSERT INTO pembayaran (spk_id, nominal, metode, bukti_path, status)
         VALUES (?, ?, 'Transfer Bank', ?, 'Menunggu Konfirmasi')
-      `, [order.id, Number(order.total), req.file.filename], connection);
+      `, [order.id, Number(order.total), objectPath], connection);
       return db.get('SELECT * FROM pembayaran WHERE id = ?', [result.insertId], connection);
     });
 
-    if (previousProof) await removeProof(path.join(proofDir, path.basename(previousProof)));
+    if (previousProof) await removeProof(previousProof);
     res.status(201).json({
       id: payment.id,
       spk_id: payment.spk_id,
@@ -251,7 +219,7 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
       submitted_at: payment.submitted_at
     });
   } catch (error) {
-    await removeProof(req.file.path);
+    await storage.remove(objectPath).catch(() => {});
     throw error;
   }
 });
@@ -278,22 +246,32 @@ router.get('/:id/bukti', auth(['admin', 'pelanggan']), async (req, res) => {
   if (!id) return res.status(400).json({ error: 'ID pembayaran tidak valid' });
 
   const payment = await db.get(`
-    SELECT p.bukti_path, c.user_id, c.telepon AS pelanggan_telepon, u.telepon AS account_telepon
+    SELECT p.bukti_path, c.user_id
     FROM pembayaran p
     INNER JOIN spk s ON s.id = p.spk_id
     LEFT JOIN pelanggan c ON c.id = s.pelanggan_id
-    LEFT JOIN users u ON u.id = ?
     WHERE p.id = ?
-  `, [req.user.id, id]);
+  `, [id]);
   if (!payment || !payment.bukti_path) return res.status(404).json({ error: 'Bukti pembayaran tidak ditemukan' });
-  const isOwner = Number(payment.user_id) === Number(req.user.id) ||
-    (payment.user_id === null && payment.pelanggan_telepon === payment.account_telepon);
+  const isOwner = Number(payment.user_id) === Number(req.user.id);
   if (req.user.role !== 'admin' && !isOwner) {
     return res.status(403).json({ error: 'Anda tidak memiliki akses ke bukti pembayaran ini' });
   }
 
+  const objectPath = proofObjectPath(payment.bukti_path);
+  if (!objectPath) return res.status(404).json({ error: 'Bukti pembayaran tidak ditemukan' });
+
+  let bytes;
+  try {
+    bytes = await storage.download(objectPath);
+  } catch (error) {
+    console.error('[DOWNLOAD] gagal membaca bukti pembayaran:', error.message);
+    return res.status(404).json({ error: 'Bukti pembayaran tidak tersedia' });
+  }
+
+  res.setHeader('Content-Type', storage.contentTypeForPath(objectPath));
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.sendFile(path.join(proofDir, path.basename(payment.bukti_path)));
+  res.send(bytes);
 });
 
 router.patch('/:id/status', auth(['admin']), async (req, res) => {

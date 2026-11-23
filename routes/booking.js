@@ -2,18 +2,12 @@ const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
 const { defaultChecklist, generateNoSPK } = require('../utils/helper');
+const { parseAppDateTime, isValidAppDate } = require('../utils/timezone');
 const router = express.Router();
 
 // Fungsi bantuan tetap dipertahankan
 function isValidDateTime(dateValue, timeValue) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const [hour, minute] = timeValue.split(':').map(Number);
-  const date = new Date(year, month - 1, day, hour, minute);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day && date.getHours() === hour && date.getMinutes() === minute;
+  return isValidAppDate(dateValue) && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(timeValue || ''));
 }
 
 function httpError(status, message) {
@@ -103,8 +97,8 @@ async function createBooking(req, res, next) {
       return res.status(400).json({ error: 'Tanggal atau waktu booking tidak valid' });
     }
 
-    const scheduledAt = new Date(`${values.tanggal}T${values.waktu}:00`);
-    if (Number.isNaN(scheduledAt.getTime()) || scheduledAt < new Date()) {
+    const scheduledAt = parseAppDateTime(`${values.tanggal} ${values.waktu}:00`);
+    if (!scheduledAt || scheduledAt.getTime() <= Date.now()) {
       return res.status(400).json({ error: 'Tanggal booking harus valid dan belum lewat' });
     }
 

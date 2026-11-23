@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
 const { toLocalDateString } = require('../utils/helper');
+const { isValidAppDate } = require('../utils/timezone');
 const router = express.Router();
 
 router.use((_req, res, next) => {
@@ -12,9 +13,7 @@ router.use((_req, res, next) => {
 router.use(auth(['admin']));
 
 function isValidDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  return isValidAppDate(value);
 }
 
 function getPeriod(req) {

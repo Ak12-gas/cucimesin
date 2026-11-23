@@ -262,8 +262,11 @@
     <div class="auth-form">
       <div style="font-size:22px;margin-bottom:8px;">🔒</div>
       <h2>Lupa Kata Sandi B2B?</h2>
-      <p>Pemulihan sandi otomatis belum tersedia. Hubungi tim CuciMesin melalui WhatsApp agar identitas mitra dapat diverifikasi terlebih dahulu.</p>
-      <a class="btn-auth red" style="display:block;text-align:center;text-decoration:none;" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mitra%20CuciMesin%20perlu%20bantuan%20reset%20password." target="_blank" rel="noopener noreferrer">Hubungi Bantuan WhatsApp</a>
+      <p>Masukkan email atau nomor WhatsApp akun mitra. Kami akan mengirim kode reset ke kanal terdaftar.</p>
+      <div class="field"><label>Email / Nomor WhatsApp Terdaftar</label><input type="text" id="forgotIdentifier" placeholder="nama@showroom.com atau 081234567890"></div>
+      <button class="btn-auth green" id="forgotSubmitButton" onclick="requestPasswordReset()">Kirim Kode Reset</button>
+      <p id="forgotMessage" style="font-size:12px;margin:-8px 0 10px;color:var(--muted);"></p>
+      <a class="btn-auth red" style="display:block;text-align:center;text-decoration:none;" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mitra%20CuciMesin%20perlu%20bantuan%20reset%20password." target="_blank" rel="noopener noreferrer">Butuh bantuan? Hubungi WhatsApp</a>
       <div class="auth-foot">Ingat kata sandi Anda? <a href="#" onclick="showAuth('auth-login')">Kembali ke Masuk</a></div>
     </div>
   </div>
@@ -275,7 +278,7 @@
     <div class="auth-brand"><span class="ic">🛡️</span><span>CuciMesin | B2B<span class="sub">Portal</span></span></div>
     <div class="auth-headline">
       <h1>Pemulihan Akses<br>Portal Kemitraan</h1>
-      <p>Reset sandi mandiri belum tersedia. Hubungi tim CuciMesin untuk memulihkan akses secara aman.</p>
+      <p>Gunakan kode reset yang dikirim ke akun mitra Anda untuk membuat kata sandi baru.</p>
     </div>
     <div></div>
   </div>
@@ -283,9 +286,13 @@
     <button class="back" onclick="showAuth('auth-login')">KEMBALI</button>
     <div class="auth-form">
       <div style="font-size:20px;margin-bottom:8px;">🔑</div>
-      <h2>Bantuan Reset Sandi</h2>
-      <p>Admin akan memverifikasi akun mitra sebelum membantu pemulihan akses.</p>
-      <a class="btn-auth red" style="display:block;text-align:center;text-decoration:none;" href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mitra%20CuciMesin%20perlu%20bantuan%20reset%20password." target="_blank" rel="noopener noreferrer">Hubungi Bantuan WhatsApp</a>
+      <h2>Atur Ulang Sandi</h2>
+      <p>Masukkan kode reset, lalu buat kata sandi baru minimal 8 karakter.</p>
+      <div class="field"><label>Kode Reset</label><input type="text" id="resetToken" placeholder="Tempel kode reset di sini"></div>
+      <div class="field"><label>Kata Sandi Baru</label><input type="password" id="resetPassword" placeholder="••••••••"></div>
+      <div class="field"><label>Konfirmasi Kata Sandi Baru</label><input type="password" id="resetConfirmPassword" placeholder="••••••••"></div>
+      <button class="btn-auth green" id="resetSubmitButton" onclick="submitPasswordReset()">Simpan Kata Sandi Baru</button>
+      <p id="resetMessage" style="font-size:12px;margin:-8px 0 10px;color:var(--muted);"></p>
     </div>
   </div>
 </div>
@@ -478,6 +485,83 @@ function normalizeIdentifier(value){
   if (!raw) return '';
   if (raw.includes('@')) return raw.toLowerCase();
   return raw;
+}
+
+function setAuthMessage(id, text){
+  const element = document.getElementById(id);
+  if (element) element.textContent = text;
+}
+
+async function requestPasswordReset(){
+  const identifier = normalizeIdentifier(document.getElementById('forgotIdentifier').value);
+  if (!identifier) {
+    setAuthMessage('forgotMessage', 'Email atau nomor WhatsApp wajib diisi.');
+    return;
+  }
+  const button = document.getElementById('forgotSubmitButton');
+  button.disabled = true;
+  setAuthMessage('forgotMessage', 'Mengirim kode reset...');
+  try {
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal mengirim kode reset');
+    if (data.dev_token) {
+      document.getElementById('resetToken').value = data.dev_token;
+      setAuthMessage('forgotMessage', `${data.message} Kode pengujian: ${data.dev_token}`);
+      setAuthMessage('resetMessage', `Kode pengujian: ${data.dev_token}`);
+    } else {
+      setAuthMessage('forgotMessage', data.message);
+      setAuthMessage('resetMessage', data.message);
+    }
+    showAuth('auth-reset');
+  } catch (error) {
+    setAuthMessage('forgotMessage', error.message || 'Gagal mengirim kode reset');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitPasswordReset(){
+  const token = document.getElementById('resetToken').value.trim();
+  const password = document.getElementById('resetPassword').value;
+  const confirm = document.getElementById('resetConfirmPassword').value;
+  if (!token) {
+    setAuthMessage('resetMessage', 'Kode reset wajib diisi.');
+    return;
+  }
+  if (password.length < 8) {
+    setAuthMessage('resetMessage', 'Kata sandi baru minimal 8 karakter.');
+    return;
+  }
+  if (password !== confirm) {
+    setAuthMessage('resetMessage', 'Konfirmasi kata sandi tidak cocok.');
+    return;
+  }
+  const button = document.getElementById('resetSubmitButton');
+  button.disabled = true;
+  setAuthMessage('resetMessage', 'Menyimpan kata sandi...');
+  try {
+    const response = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal mereset kata sandi');
+    document.getElementById('resetToken').value = '';
+    document.getElementById('resetPassword').value = '';
+    document.getElementById('resetConfirmPassword').value = '';
+    setAuthMessage('resetMessage', data.message);
+    setTimeout(() => showAuth('auth-login'), 800);
+  } catch (error) {
+    setAuthMessage('resetMessage', error.message || 'Gagal mereset kata sandi');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function updatePortalUser(user){

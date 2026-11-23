@@ -1,27 +1,69 @@
+'use strict';
+
+const { toAppDate, toAppDateTime, addAppDays } = require('./timezone');
+
+// Nama lama dipertahankan untuk kompatibilitas, tetapi sekarang selalu WIB
+// dan tidak bergantung pada timezone proses (Node di lokal vs Vercel).
 function toLocalDateString(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  return toAppDate(date);
 }
 
 function toLocalDateTimeString(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 19).replace('T', ' ');
+  return toAppDateTime(date);
+}
+
+function localizedDateDaysAgo(days) {
+  return toAppDate(addAppDays(new Date(), -days));
+}
+
+// Hash deterministik untuk kunci advisory lock Postgres (int32).
+function lockKey(scope) {
+  let hash = 0;
+  for (let index = 0; index < scope.length; index += 1) {
+    hash = (hash * 31 + scope.charCodeAt(index)) | 0;
+  }
+  return hash;
+}
+
+async function withNumberLock(db, connection, scope, callback) {
+  const key = lockKey(scope);
+  if (connection) {
+    // Transaksi sudah terbuka: lock dilepas otomatis saat COMMIT/ROLLBACK.
+    await db.get('SELECT pg_advisory_xact_lock(?)', [key], connection);
+    return callback();
+  }
+  await db.get('SELECT pg_advisory_lock(?)', [key]);
+  try {
+    return await callback();
+  } finally {
+    await db.get('SELECT pg_advisory_unlock(?)', [key]);
+  }
+}
+
+// "Baca terakhir + 1" tetap dipakai agar numbering existing tidak berubah,
+// tetapi kini diserialisasi oleh advisory lock per prefix.
+async function nextNumber(db, connection, table, column, prefix) {
+  return withNumberLock(db, connection, `${table}:${prefix}`, async () => {
+    const row = await db.get(
+      `SELECT ${column} FROM ${table} WHERE ${column} LIKE ? ORDER BY id DESC LIMIT 1`,
+      [prefix + '%'], connection
+    );
+    const last = row ? parseInt(String(row[column]).split('-').pop(), 10) : 0;
+    const next = Number.isFinite(last) && last > 0 ? last + 1 : 1;
+    return prefix + String(next).padStart(3, '0');
+  });
 }
 
 async function generateNoSPK(db, connection) {
-  const d = new Date();
-  const prefix = `SPK-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}-`;
-  const row = await db.get("SELECT no_spk FROM spk WHERE no_spk LIKE ? ORDER BY id DESC LIMIT 1", [prefix + '%'], connection);
-  const n = row ? parseInt(row.no_spk.split('-').pop(), 10) + 1 : 1;
-  return prefix + String(n).padStart(3, '0');
+  const date = toAppDate();
+  const prefix = `SPK-${date.slice(0, 4)}${date.slice(5, 7)}-`;
+  return nextNumber(db, connection, 'spk', 'no_spk', prefix);
 }
 
 async function generateNoInvoice(db, mitraId, connection) {
-  const d = new Date();
-  const prefix = `INV-${mitraId}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}-`;
-  const row = await db.get("SELECT no_invoice FROM invoice_mitra WHERE no_invoice LIKE ? ORDER BY id DESC LIMIT 1", [prefix + '%'], connection);
-  const n = row ? parseInt(row.no_invoice.split('-').pop(), 10) + 1 : 1;
-  return prefix + String(n).padStart(3, '0');
+  const date = toAppDate();
+  const prefix = `INV-${mitraId}-${date.slice(0, 4)}${date.slice(5, 7)}-`;
+  return nextNumber(db, connection, 'invoice_mitra', 'no_invoice', prefix);
 }
 
 function defaultChecklist() {
@@ -33,4 +75,11 @@ function defaultChecklist() {
   ];
 }
 
-module.exports = { toLocalDateString, toLocalDateTimeString, generateNoSPK, generateNoInvoice, defaultChecklist };
+module.exports = {
+  toLocalDateString,
+  toLocalDateTimeString,
+  localizedDateDaysAgo,
+  generateNoSPK,
+  generateNoInvoice,
+  defaultChecklist
+};

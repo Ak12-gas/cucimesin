@@ -1,0 +1,28 @@
+# AGENTS.md
+
+## Repo shape
+- Node 24.x (`engines`), CommonJS Express 4 backend plus static HTML in `public/`; no build/lint/typecheck scripts. Tests use built-in `node:test` (no test framework dependency).
+- `server.js` exports `createApp()`; the listener, `db.initialize()`, and PDF browser shutdown only run when it is invoked directly. Mount new API domains in `server.js` (`/api/<domain>` → `routes/<domain>.js`).
+- Live DB is Supabase Postgres via `pg`. Use `db/schema-supabase.sql`, `db/seed-supabase.js`, and `api/index.js`. `data/*.db` and `api-backup/` remain as inactive legacy/backup files; the obsolete `diagnose.js`, `db/seed.js`, and `db/schema-mysql.sql` have been removed.
+- `ANALISIS_PROGRAM.md` §§4–8 are a historical audit; §9 lists fixes already applied (JWT fail-fast, Bearer-only auth, CORS, rate limiting, PDF template, upload signatures, atomic registration, `pelanggan.user_id`). Verify code before treating those findings as current bugs; §10 is the remaining backlog.
+
+## Commands
+- `npm run dev` (nodemon) / `npm start`; `npm ci` for clean installs. Docker uses `npm ci --omit=dev`.
+- `npm run seed` creates demo accounts with known passwords — development only, never production.
+- `npm run migrate:supabase` is a one-time MySQL→Supabase copy: needs `SOURCE_DB_*` plus an empty target and aborts on non-empty tables. Canonical migration/deploy steps are in `VERCEL.md` and `DEPLOYMENT.md`.
+- `npm test` runs `node --test "test/*.test.js"`; tests inject fake `db`/`htmlToPdf` via `require.cache`, so no Supabase or Chrome is needed. A small Express server with `express-async-errors` and a JSON error handler is used for auth/reset webhook, SPK access, keuangan validation, upload-limit, and route-flow smoke tests; the smoke test mounts every API domain via `createApp()` with fake DB/storage/PDF and checks all representative endpoints for 5xx plus auth gating. Storage path mapping and the frontend reset-navigation regression are covered separately. `node --check <file>` and a `GET /api` smoke test are still useful; full route tests need a reachable `DATABASE_URL`. CI (`.github/workflows/test.yml`) runs `npm ci`, syntax checks (excluding `api-backup/`), and `npm test`.
+- `npm run migrate:uploads` copies legacy SPK photos and payment proofs to Supabase Storage without changing DB paths: dry-run by default, `npm run migrate:uploads -- --apply` to upload.
+
+## Non-obvious runtime rules
+- Write SQL in MySQL style (`?` placeholders, backticks); `db/database.js` translates it to Postgres. `run()` auto-appends `RETURNING id` only for a fixed table list, so add new tables there if you need `insertId`. Inside `db.transaction()`, pass the callback's `connection` to every `db.run/get/all` call.
+- `db.initialize()` applies `schema-supabase.sql` at startup with a simple newline/semicolon split; keep schema statements one per line with a trailing `;`.
+- `require('express-async-errors')` at the top of `server.js` is load-bearing for async route errors; do not remove it.
+- Auth lives in `utils/security.js`: production fails fast without `JWT_SECRET` (a dev fallback exists), and only `Authorization: Bearer` is accepted. `CORS_ORIGINS` is comma-separated and defaults to no CORS headers. `TRUST_PROXY=true` deliberately throws; use a hop count or IP. Rate limits use Upstash REST when `UPSTASH_*` is set, otherwise in-memory per process; on Vercel the client IP comes from the first `X-Forwarded-For` value.
+- Uploads use in-memory multer with a 4 MB cap on Vercel and 5 MB elsewhere, plus jpeg/png/webp extension, MIME, and magic-byte checks; `services/storage.js` writes to Supabase Storage (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) or falls back to local disk. SPK photo paths can be absolute public URLs; payment proofs stay as object keys served through `/api/pembayaran/:id/bukti`. The lower Vercel cap keeps requests below the platform's 4.5 MB body limit so oversized files get a JSON error from the API.
+- PDFs use system Chrome locally (or `PUPPETEER_EXECUTABLE_PATH`) and `@sparticuz/chromium` when `VERCEL` is set; templates live in `templates/` with `{{PLACEHOLDER}}` tokens. Docker installs Chromium/fonts and sets `PUPPETEER_SKIP_DOWNLOAD=true`.
+- All timestamps are WIB wall-clock strings (`YYYY-MM-DD HH:mm:ss`), centralized in `utils/timezone.js`. The Postgres pool sets `-c timezone=Asia/Jakarta` at startup so `CURRENT_DATE`/`CURRENT_TIMESTAMP` match. Keep `APP_TIME_ZONE` restricted to valid IANA names; parse naive DB strings with `parseAppDateTime()`, not `new Date()`.
+- Number generation (`generateNoSPK`/`generateNoInvoice`) keeps the "max + 1" format but serializes per prefix with Postgres advisory locks; always pass the transaction `connection` so `pg_advisory_xact_lock` is released on commit.
+- Password recovery uses hashed, single-use tokens in `password_reset` (30-minute expiry). `POST /api/auth/forgot-password` returns a generic message and only includes `dev_token` outside production; production delivery needs `RESET_WEBHOOK_URL` (+ optional `RESET_WEBHOOK_TOKEN`).
+- Customer ownership is strictly `pelanggan.user_id = users.id`; phone-number fallback was removed. `db.initialize()` backfills unambiguous `pelanggan.user_id` and `booking.user_id`; ambiguous legacy duplicates are skipped, not guessed.
+- Vercel rewrites `/api/*` to `api/index.js?__route=...`, which restores `req.url` for Express; `serverless-handler.js` lazily initializes DB/app. When adding serverless assets, update `functions.api/**.includeFiles` in `vercel.json`; function timeout is 60s.
+- Docker/Railway: mount a volume at `/data`, do not set `PORT`, and keep a single replica while uploads remain on the local volume.

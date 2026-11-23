@@ -12,14 +12,14 @@ CuciMesin adalah aplikasi operasional jasa cuci mesin kendaraan berbasis Node.js
 2. Salin `.env.example` menjadi `.env`, lalu isi `DATABASE_URL` dan `JWT_SECRET`.
 3. Jalankan `npm install`, kemudian `npm run dev`.
 
-Untuk menyalin data MySQL lama, isi `SOURCE_DB_*` dan `DATABASE_URL`, lalu jalankan `npm run migrate:supabase`. Database SQLite di `data/cucimesin.db` bukan sumber aktif backend dan tidak disalin. Seeding aplikasi memakai `db/seed-supabase.js`; `db/seed.js` hanya legacy SQLite.
+Untuk menyalin data MySQL lama, isi `SOURCE_DB_*` dan `DATABASE_URL`, lalu jalankan `npm run migrate:supabase`. Database SQLite di `data/cucimesin.db` bukan sumber aktif backend dan tidak disalin. Seeding aplikasi memakai `db/seed-supabase.js`; seed SQLite lama sudah dihapus.
 
 - `admin`: dashboard, SPK, pelanggan, teknisi, keuangan, laporan, pengaturan.
 - `teknisi`: tugas SPK, checklist, foto sebelum/sesudah, perubahan status.
 - `pelanggan`: riwayat SPK dan detail SPK miliknya.
 - `mitra`: dashboard showroom, invoice, profil, dan pembayaran invoice.
 
-Frontend disajikan sebagai berkas HTML statis dari folder `public/`. Backend dan frontend berada dalam satu repository, tanpa pemisahan build atau test suite.
+Frontend disajikan sebagai berkas HTML statis dari folder `public/`. Backend dan frontend berada dalam satu repository, tanpa build step; backend memiliki test suite bawaan `node:test` yang dijalankan dengan `npm test`.
 
 ## 2. Arsitektur dan alur utama
 
@@ -53,7 +53,7 @@ Frontend disajikan sebagai berkas HTML statis dari folder `public/`. Backend dan
 2. Sistem memvalidasi referensi pelanggan, mitra, teknisi, layanan, dan diskon.
 3. Sistem membuat nomor SPK, checklist default, dan audit log dalam transaksi PostgreSQL.
 4. Teknisi/admin dapat mengubah status, checklist, dan upload foto.
-5. Status `Selesai` otomatis membuat transaksi pemasukan.
+5. Status `Selesai` tidak otomatis membuat transaksi pemasukan; transaksi baru dicatat setelah admin mengonfirmasi pembayaran.
 6. Pengguna yang berhak dapat mengunduh PDF melalui `GET /api/spk/:id/pdf`.
 
 ### Alur booking
@@ -94,108 +94,33 @@ Semua path berada di bawah `/api`.
 | Pengaturan | `GET /pengaturan/publik` | Publik |
 | Pengaturan | `GET/PUT /pengaturan` | Admin |
 
-## 4. Temuan prioritas
+## 4–8. Arsip audit awal (per 2026-11-23)
 
-### P0 - harus diperbaiki sebelum produksi
+Bagian ini adalah catatan historis dari audit sebelum perbaikan. Klaim di bawah
+**sudah tidak mencerminkan kode saat ini**; rincian perbaikan dan sisa pekerjaan
+ada di §9–§10.
 
-1. **Template PDF tidak sesuai dengan generator.**
-   `services/pdfservice.js` mengganti placeholder seperti `{{NO_SPK}}`, `{{CHECKLIST_ITEMS}}`, dan `{{FOTO_SECTION}}`, tetapi `templates/spk-pdf.html` yang ada berisi fungsi JavaScript `unduhNota()` dan tidak berisi layout/placeholder PDF. Endpoint PDF kemungkinan menghasilkan halaman kosong atau isi yang bukan nota SPK. Perbaiki template menjadi HTML nota yang lengkap dan uji endpoint dengan PDF parser atau minimal ukuran/content PDF.
-   Lokasi: `services/pdfservice.js`, `templates/spk-pdf.html`.
+Temuan yang dulu masuk prioritas P0/P1 meliputi: template PDF yang tidak sesuai
+generator, fallback secret JWT, token lewat query string, tanpa rate limiting,
+validasi upload hanya berdasarkan ekstensi/MIME, FK yang dianggap belum lengkap,
+identitas pelanggan berbasis telepon, registrasi mitra bukan transaksi, error
+handler yang membocorkan pesan internal, CORS terbuka, reset password hanya di UI,
+status selesai disamakan dengan lunas, dan generator nomor yang rawan race.
+Pada P2 tercatat pula keterbatasan workflow booking, laporan, CRUD layanan,
+validasi input, data demo statis, belum adanya test, dan aplikasi yang belum bisa
+diuji sebagai modul.
 
-2. **Secret JWT memiliki fallback yang diketahui.**
-   Jika `JWT_SECRET` tidak diatur, token ditandatangani dengan `dev-secret-change-me`. Ini memungkinkan pemalsuan token jika konfigurasi produksi lupa diisi. Aplikasi produksi harus gagal start ketika secret tidak tersedia dan secret harus panjang/acak.
-   Lokasi: `server.js`, `middleware/auth.js`, `routes/auth.js`, `routes/mitra.js`.
+Semua item keamanan dan fungsional di atas telah ditangani sampai batas yang
+dijelaskan di §9. Status terbaru: FK untuk relasi bisnis utama diverifikasi sudah ada di
+`db/schema-supabase.sql`; tidak perlu menambah constraint baru. Catatan ini
+dipertahankan hanya sebagai jejak audit, bukan daftar tugas aktif.
 
-3. **Token diterima melalui query string.**
-   `middleware/auth.js` menerima `req.query.token`. Token dapat masuk ke access log, browser history, analytics, atau referer. Batasi token ke header `Authorization: Bearer` atau gunakan cookie HttpOnly/SameSite dengan desain CSRF yang jelas.
-   Lokasi: `middleware/auth.js`.
-
-4. **Tidak ada rate limiting atau proteksi brute force.**
-   Login publik dan registrasi dapat dipanggil tanpa batas. Tambahkan rate limit berbasis IP/identifier, logging percobaan gagal, dan pertimbangkan lockout bertahap.
-   Lokasi: `routes/auth.js`, `routes/mitra.js`.
-
-5. **Upload hanya memeriksa ekstensi dan MIME request.**
-   MIME HTTP dapat dipalsukan. File disajikan langsung dari `/uploads`. Validasi magic bytes dengan library image parser, normalisasi/rekode gambar, dan simpan di lokasi yang tidak dapat mengeksekusi script. Error upload juga perlu ditangani dengan respons terkontrol.
-   Lokasi: `middleware/upload.js`, `server.js`.
-
-### P1 - risiko fungsional dan keamanan penting
-
-1. **Relasi bisnis utama tidak memiliki foreign key.**
-   `spk.pelanggan_id`, `spk.mitra_id`, `spk.layanan_id`, `spk.teknisi_id`, relasi `transaksi`, `invoice_mitra`, `booking`, serta relasi user-mitra tidak didefinisikan sebagai foreign key. Validasi route tidak cukup untuk semua jalur tulis. Tambahkan FK/index dan migrasi data yang sudah ada.
-   Lokasi: `db/database.js`.
-
-2. **Identitas pelanggan dicocokkan menggunakan nomor telepon.**
-   `middleware/spk-access.js` dan `routes/pelanggan.js` mencari pelanggan berdasarkan telepon, bukan hubungan eksplisit user -> pelanggan. Tabel `pelanggan.telepon` juga tidak unik. Dua record pelanggan dengan nomor sama dapat menyebabkan akses silang atau riwayat tercampur. Tambahkan `pelanggan.user_id` atau relasi akun yang eksplisit.
-   Lokasi: `middleware/spk-access.js`, `routes/pelanggan.js`, `db/database.js`.
-
-3. **Registrasi mitra tidak atomik.**
-   `routes/mitra.js` memasukkan record `mitra` lalu record `users` tanpa transaksi. Jika insert user gagal karena constraint atau error lain, mitra yatim tertinggal. Bungkus kedua insert dalam `db.transaction()`.
-
-4. **Error handler membocorkan pesan internal.**
-   `server.js` mengirim `err.message` langsung ke klien. Pesan SQLite, filesystem, atau library dapat mengungkap detail internal. Log detail di server, kirim pesan generik ke klien, dan petakan error validasi secara eksplisit.
-
-5. **CORS terbuka untuk semua origin.**
-   `app.use(cors())` menerima origin apa pun. Batasi ke origin frontend yang diset melalui environment, terutama jika autentikasi dipindahkan ke cookie.
-   Lokasi: `server.js`.
-
-6. **Password reset hanya ada di UI, belum ada API.**
-   Halaman pelanggan dan portal mitra menampilkan alur lupa/reset password, tetapi backend tidak memiliki endpoint token reset, pengiriman instruksi, expiry, atau validasi token. Tombol hanya berpindah layar. Hapus UI sementara atau implementasikan reset yang aman dengan token sekali pakai dan masa berlaku.
-   Lokasi: `public/pelanggan-portal.html`, `public/portal-mitra.html`, `routes/auth.js`, `routes/mitra.js`.
-
-7. **Status selesai otomatis dicatat sebagai pembayaran.**
-   Perubahan SPK ke `Selesai` langsung membuat transaksi `masuk`, sementara PDF juga menampilkan status `LUNAS` hanya berdasarkan status selesai. Secara bisnis pengerjaan selesai dan pembayaran lunas bisa berbeda. Pisahkan status pengerjaan dari status pembayaran atau konfirmasi aturan bisnis ini secara eksplisit.
-   Lokasi: `routes/spk.js`, `services/pdfservice.js`, `db/database.js`.
-
-8. **Nomor SPK/invoice berpotensi race condition.**
-   Generator membaca nomor terakhir lalu menambah satu. Retry hanya menangani constraint unik, tetapi konkurensi tinggi tetap bergantung pada retry dan tidak ada generator sequence khusus. Gunakan sequence/transaction yang lebih kuat atau tetapkan retry dengan batas dan observability.
-   Lokasi: `utils/helper.js`, `routes/spk.js`.
-
-### P2 - kelengkapan produk dan maintainability
-
-1. **Booking belum memiliki workflow operasional.** Tidak ada daftar admin, update status, validasi bentrok jadwal, atau konversi booking ke SPK.
-2. **Laporan sangat minimal.** Hanya mengembalikan jumlah SPK; belum ada omzet, biaya, status, layanan, teknisi, mitra, atau ekspor.
-3. **Keuangan belum memiliki route tulis admin.** Transaksi hanya dibuat otomatis oleh status SPK atau pembayaran invoice.
-4. **Layanan hanya bisa ditambah.** Tidak ada edit/nonaktif/delete route meskipun kolom `aktif` tersedia.
-5. **Frontend mengandung banyak data demo statis.** Contoh yang terlihat di dashboard pelanggan, teknisi, dan portal mitra dapat berbeda dari database. Endpoint dinamis perlu menjadi sumber data tunggal dan state loading/error/empty perlu ditambahkan.
-6. **Tidak ada test suite.** `package.json` hanya memiliki `start`, `dev`, dan `seed`; belum ada test, lint, migration, atau health-check script.
-7. **Aplikasi sulit diuji sebagai modul.** `server.js` langsung memanggil `app.listen()` saat di-require dan tidak mengekspor app. Pisahkan pembuatan app dari listener agar route dapat diuji dengan Supertest.
-8. **Penanganan tanggal tidak konsisten.** Sebagian query memakai `toISOString()` UTC, sebagian memakai `localtime`, dan SPK memakai helper waktu lokal. Ini dapat menggeser statistik di sekitar pergantian hari atau timezone server.
-9. **Seed menyimpan kredensial demo plaintext di source.** Aman hanya untuk development; jangan gunakan akun/password tersebut di lingkungan nyata dan pindahkan seed demo ke konfigurasi development.
-10. **Validasi input belum seragam.** Contoh `layanan.js` menerima harga/durasi tanpa validasi numerik/rentang, `booking.js` hanya memeriksa pola tanggal/waktu tanpa memastikan tanggal valid atau slot tersedia, dan pengaturan admin menerima semua key dari body.
-
-## 5. Hal yang sudah berjalan baik
-
-- Password disimpan dengan `bcryptjs`, bukan plaintext.
-- Query database memakai prepared statement pada route yang ditinjau.
-- JWT memiliki expiry yang dapat dikonfigurasi.
-- Status SPK memakai allowlist dan transition map.
-- Operasi pembuatan SPK, checklist, audit, dan pembayaran invoice memakai transaksi pada bagian yang relevan.
-- Upload memiliki batas ukuran 5 MB dan allowlist ekstensi/MIME dasar.
-- Akses detail SPK memakai middleware terpusat, bukan pemeriksaan berbeda di setiap handler.
-- SQLite WAL dan foreign key pragma untuk relasi yang memang didefinisikan sudah diaktifkan.
-
-## 6. Urutan perbaikan yang disarankan
-
-1. Ganti secret JWT fallback dengan fail-fast, hilangkan token query string, batasi CORS, dan tambahkan rate limit login.
-2. Perbaiki/rebuild template PDF lalu uji endpoint PDF end-to-end.
-3. Tambahkan relasi akun pelanggan yang eksplisit dan audit seluruh aturan akses.
-4. Amankan upload dengan validasi isi file/rekode gambar dan penyimpanan non-eksekutabel.
-5. Tambahkan transaksi registrasi mitra, error response generik, dan validasi input terpusat.
-6. Putuskan model pembayaran: selesai versus lunas, lalu migrasikan schema/API/UI secara konsisten.
-7. Lengkapi workflow booking, route CRUD layanan, dan laporan/keuangan sesuai kebutuhan operasional.
-8. Pisahkan `createApp()` dari `listen()`, tambahkan test route/auth/SPK/access control, dan jalankan test pada CI.
-9. Kurangi data demo statis pada UI dan sambungkan setiap portal ke endpoint backend dengan state loading/error/empty.
-
-## 7. Validasi yang dilakukan
-
-- Semua berkas JavaScript yang ditemukan berhasil melewati `node --check`.
-- Inventaris route, middleware, database, service, template, dan halaman publik ditinjau.
-- Pencarian pemakaian `fetch`, `/api/`, `localStorage`, auth, status SPK, checklist, dan foto dilakukan untuk mencocokkan UI dengan backend.
-- Belum ada test otomatis yang dapat dijalankan karena repository belum menyediakan test script atau test suite.
-
-## 8. Kesimpulan
-
-Fondasi aplikasi sudah cukup jelas untuk MVP internal: route terpisah per domain, role-based JWT, workflow SPK, audit, invoice, upload, dan PDF sudah dirancang. Namun aplikasi belum siap dipakai sebagai layanan produksi tanpa perbaikan P0/P1, terutama secret JWT, token query, upload, kontrol akses pelanggan, template PDF, reset password, dan pemisahan status selesai dari pembayaran. Prioritas paling bernilai adalah mengamankan autentikasi/upload lalu menambahkan test untuk akses SPK dan alur status sebelum memperluas fitur bisnis.
+Validasi terkini: `npm test` (mencakup auth/reset + webhook, identitas pelanggan,
+matriks akses SPK, batas periode/transaksi keuangan, rate limit, timezone,
+generator nomor, status PDF, pemetaan path Storage, batas upload, navigasi reset
+frontend, serta smoke test seluruh alur API melalui `createApp()` dengan fake
+DB/storage/PDF), `node --check`
+untuk seluruh JavaScript aktif, smoke test `GET /api`, dan render PDF.
 
 ## 9. Perbaikan yang sudah diterapkan
 
@@ -212,10 +137,31 @@ Perubahan pada sesi perbaikan ini:
 - Seed melakukan backfill relasi pelanggan, termasuk untuk database development baru.
 - Validasi layanan dan tanggal/waktu booking diperketat.
 - Admin dapat melihat booking dan mengubah status booking.
+- Status LUNAS pada PDF SPK sekarang berasal dari `pembayaran.status` (pelanggan) atau `invoice_mitra.status` (mitra), bukan dari status SPK; alur "Selesai tapi belum bayar" diuji lewat `npm test`.
+- Fallback identitas lewat nomor telepon dihapus; `backfillCustomerLinks()` hanya menautkan data dengan nomor unik saat startup.
+- Rate limiter memakai Upstash bila tersedia, mengambil IP dari `X-Forwarded-For` pertama di Vercel, dan memberi peringatan bila production masih memakai memory store.
+- Upload memakai `services/storage.js` (Supabase Storage bila dikonfigurasi), sehingga tidak bergantung pada `/tmp` ephemeral di Vercel.
+- Seluruh waktu distandardisasi ke Asia/Jakarta (WIB) lewat `utils/timezone.js`; sesi Postgres juga diset ke timezone yang sama.
+- Generator nomor SPK/invoice diserialisasi dengan advisory lock Postgres per prefix.
+- Pemulihan password memakai token ber-hash yang kedaluarsa 30 menit dan sekali pakai; UI portal pelanggan dan mitra sudah terhubung ke endpoint `/api/auth/forgot-password` dan `/api/auth/reset-password`.
+- CI menjalankan `npm ci`, `node --check` untuk berkas JavaScript aktif, dan `npm test`.
+- Batas upload disesuaikan dengan batas body Vercel (4 MB saat `VERCEL`).
+- `npm run migrate:uploads` menyalin file upload lama ke Supabase Storage (dry-run default, `--apply` untuk mengunggah).
+- Test ditambah untuk matriks akses SPK per role, validasi periode/tanggal transaksi keuangan, batas upload Vercel, pemetaan path Storage, dan pengiriman webhook reset.
+- Webhook reset kini memakai timeout 5 detik, memeriksa status respons, dan tidak menggagal respons `forgot-password` bila pengiriman gagal.
+- `storage.toObjectPath()` dinormalisasi lebih dulu sehingga `/uploads/`, `///uploads/`, dan `uploads/` dipetakan ke object path yang sama.
+- Verifikasi skema: foreign key untuk relasi bisnis utama sudah didefinisikan di `db/schema-supabase.sql`.
+- Berkas legacy usang `diagnose.js`, `db/seed.js`, dan `db/schema-mysql.sql` dihapus; `data/*.db` dan `api-backup/` sengaja dipertahankan.
+- Smoke test `test/route-flow-smoke.test.js` memasang semua domain API lewat `createApp()` dan mengecek ~70 endpoint perwakilan: tidak ada HTTP 5xx, endpoint terproteksi menolak request tanpa token dengan 401, dan endpoint publik tetap bisa diakses.
+- Setelah `forgot-password` berhasil, portal pelanggan dan mitra kini mengisi `dev_token` (bila ada), meneruskan pesan sukses ke form reset, lalu otomatis berpindah ke `auth-reset`; regresinya dijaga oleh `test/frontend-reset-navigation.test.js`.
 
 ## 10. Backlog yang masih tersisa
 
-Perbaikan penuh masih memerlukan foreign key untuk seluruh tabel bisnis, reset password berbasis token, workflow konversi booking ke SPK, pemisahan status pengerjaan dan pembayaran, pengujian otomatis formal, serta penggantian data demo statis pada frontend. CORS production harus diisi, misalnya `CORS_ORIGINS=https://domain-frontend.example`.
+- Konfigurasi lingkungan produksi: `CORS_ORIGINS` dan `UPSTASH_*` wajib diisi agar CORS dibatasi dan rate limit berlaku lintas instance. `RESET_WEBHOOK_URL` perlu diarahkan ke pengirim email/WhatsApp nyata; token reset sudah diamankan dan webhook generik sudah tersedia dengan timeout 5 detik serta pengecekan status respons.
+- Data demo statis pada frontend perlu ditinjau lagi. Tidak ada penanda `demo`, `dummy`, atau `mock` yang ditemukan di `public/*.html`, jadi ini bukan lagi pekerjaan otomatis: periksa tiap portal terhadap endpoint backend dan tambahkan state loading/error/empty bila belum ada.
+- Berkas legacy usang (`diagnose.js`, `db/seed.js`, `db/schema-mysql.sql`) sudah dihapus. `data/*.db` dipertahankan karena berisi data lama, dan `api-backup/` dipertahankan sesuai instruksi.
+- Batas upload kini mengikuti platform: 4 MB saat `VERCEL`, 5 MB di lingkungan lain; dokumentasi deployment sudah diselaraskan.
+- Skrip `npm run migrate:uploads` tersedia untuk menyalin file lama ke Supabase Storage tanpa mengubah path di database. Jalankan dry-run lebih dulu, lalu `--apply` setelah rencana diperiksa.
 
 ## 11. Status Migrasi Supabase
 

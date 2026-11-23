@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const storage = require('./storage');
+const { formatWibLong, toAppDateTime } = require('../utils/timezone');
 
 const TEMPLATE_DIR = path.join(__dirname, '..', 'templates');
-const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads'));
 
 let browserPromise = null;
 let puppeteerPromise = null;
@@ -76,13 +77,7 @@ function escapeHtml(value) {
 }
 
 function formatTanggal(dateStr) {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr.replace(' ', 'T'));
-  if (isNaN(d)) return dateStr;
-  const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-  const jam = String(d.getHours()).padStart(2, '0');
-  const menit = String(d.getMinutes()).padStart(2, '0');
-  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}, ${jam}:${menit} WIB`;
+  return formatWibLong(dateStr);
 }
 
 function renderTemplate(templateName, vars) {
@@ -94,19 +89,29 @@ function renderTemplate(templateName, vars) {
   return html;
 }
 
-function resolveFotoDataUrl(pathname) {
+async function resolveFotoDataUrl(pathname) {
   if (!pathname) return null;
-  const filename = path.basename(pathname);
-  const abs = path.resolve(UPLOAD_DIR, filename);
+  const urlPath = String(pathname).split('?')[0];
   const mimeTypes = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.png': 'image/png',
     '.webp': 'image/webp'
   };
-  const mimeType = mimeTypes[path.extname(filename).toLowerCase()];
-  if (!mimeType || !fs.existsSync(abs)) return null;
-  return `data:${mimeType};base64,${fs.readFileSync(abs).toString('base64')}`;
+  const mimeType = mimeTypes[path.extname(urlPath).toLowerCase()];
+  if (!mimeType) return null;
+
+  const objectPath = /^https?:\/\//i.test(urlPath)
+    ? storage.toObjectPath(urlPath)
+    : urlPath.replace(/^\/uploads\//, '').replace(/^[\\/]+/, '');
+  if (!objectPath) return null;
+
+  try {
+    const bytes = await storage.download(objectPath);
+    return `data:${mimeType};base64,${bytes.toString('base64')}`;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function htmlToPdf(html) {
@@ -125,8 +130,37 @@ async function htmlToPdf(html) {
   }
 }
 
-async function generateSPKPdf(spk) {
-  const db = require('../db/database');
+const PAYMENT_LUNAS_HTML = '<div class="status-bayar lunas"><span>✓</span> LUNAS — Terima kasih.</div>';
+const PAYMENT_BELUM_HTML = '<div class="status-bayar belum"><span>⚠</span> BELUM LUNAS — Bayar di kasir.</div>';
+
+// LUNAS hanya jika SPK selesai DAN pembayaran dikonfirmasi (pelanggan)
+// atau invoice mitra sudah lunas. Status SPK saja tidak cukup.
+function buildPaymentStatus(spk, payment, invoice) {
+  if (spk.status !== 'Selesai') return PAYMENT_BELUM_HTML;
+  if (spk.mitra_id) {
+    return invoice && invoice.status === 'Lunas' ? PAYMENT_LUNAS_HTML : PAYMENT_BELUM_HTML;
+  }
+  return payment && payment.status === 'Dikonfirmasi' ? PAYMENT_LUNAS_HTML : PAYMENT_BELUM_HTML;
+}
+
+async function loadPaymentContext(db, spk) {
+  if (spk.mitra_id) {
+    const invoice = await db.get(`
+      SELECT i.status
+      FROM invoice_mitra i
+      INNER JOIN invoice_mitra_spk s ON s.invoice_id = i.id
+      WHERE s.spk_id = ?
+      LIMIT 1
+    `, [spk.id]);
+    return { payment: null, invoice };
+  }
+  const payment = await db.get('SELECT status FROM pembayaran WHERE spk_id = ?', [spk.id]);
+  return { payment, invoice: null };
+}
+
+async function generateSPKPdf(spk, options = {}) {
+  const db = options.db || require('../db/database');
+  const toPdf = options.htmlToPdf || htmlToPdf;
   const getSetting = async (key, fallback = '') => {
     const r = await db.get('SELECT value FROM pengaturan WHERE `key`=?', [key]);
     return r ? r.value : fallback;
@@ -144,22 +178,26 @@ async function generateSPKPdf(spk) {
   const fotoSesudah = (spk.foto || []).filter(f => f.tipe === 'sesudah');
 
   if (fotoSebelum.length || fotoSesudah.length) {
-    const renderFoto = (foto, label) => {
+    const renderFoto = async (foto, label) => {
       if (!foto.length) {
         return `<div class="photo-item"><div class="photo-placeholder"><span class="ic">📷</span><span>Belum ada foto</span></div><div class="label">${label}</div></div>`;
       }
-      return foto.map((item, index) => {
-        const url = resolveFotoDataUrl(item.path);
+      const items = [];
+      for (const [index, item] of foto.entries()) {
+        const url = await resolveFotoDataUrl(item.path);
         const photoLabel = foto.length > 1 ? `${label} ${index + 1}` : label;
-        return `<div class="photo-item">${url ? `<img src="${url}">` : `<div class="photo-placeholder">⚠</div>`}<div class="label">${photoLabel}</div></div>`;
-      }).join('');
+        items.push(`<div class="photo-item">${url ? `<img src="${url}">` : `<div class="photo-placeholder">⚠</div>`}<div class="label">${photoLabel}</div></div>`);
+      }
+      return items.join('');
     };
+    const sebelumHtml = await renderFoto(fotoSebelum, 'Sebelum Cuci');
+    const sesudahHtml = await renderFoto(fotoSesudah, 'Setelah Cuci');
     fotoSection = `
       <div class="section">
         <div class="section-title">Dokumentasi Pengerjaan</div>
         <div class="photo-grid">
-          ${renderFoto(fotoSebelum, 'Sebelum Cuci')}
-          ${renderFoto(fotoSesudah, 'Setelah Cuci')}
+          ${sebelumHtml}
+          ${sesudahHtml}
         </div>
       </div>`;
   }
@@ -173,9 +211,8 @@ async function generateSPKPdf(spk) {
     catatanSection += `<div class="section"><div class="section-title">Laporan Teknisi${teknisi}</div><div style="padding:10px;background:#f3f5f4;border-radius:6px;white-space:pre-wrap;">${escapeHtml(spk.laporan.laporan)}</div></div>`;
   }
 
-  const notePembayaran = spk.status === 'Selesai'
-    ? `<div class="status-bayar lunas"><span>✓</span> LUNAS — Terima kasih.</div>`
-    : `<div class="status-bayar belum"><span>⚠</span> BELUM LUNAS — Bayar di kasir.</div>`;
+  const paymentContext = spk.status === 'Selesai' ? await loadPaymentContext(db, spk) : {};
+  const notePembayaran = buildPaymentStatus(spk, paymentContext.payment, paymentContext.invoice);
 
   const vars = {
     NAMA_BISNIS:       escapeHtml(await getSetting('nama_bisnis', 'CuciMesin Carwash')),
@@ -207,11 +244,11 @@ async function generateSPKPdf(spk) {
     CHECKLIST_ITEMS:   checklistHtml,
     FOTO_SECTION:      fotoSection,
     CATATAN_SECTION:   catatanSection,
-    PRINTED_AT:        escapeHtml(formatTanggal(new Date().toISOString().slice(0, 19).replace('T', ' ')))
+    PRINTED_AT:        escapeHtml(formatTanggal(toAppDateTime()))
   };
 
   const html = renderTemplate('spk-pdf.html', vars);
-  return htmlToPdf(html);
+  return toPdf(html);
 }
 
 async function generateMitraInvoicePdf(invoice, mitra, items) {
@@ -291,4 +328,4 @@ async function closeBrowser() {
   }
 }
 
-module.exports = { generateSPKPdf, generateMitraInvoicePdf, htmlToPdf, closeBrowser };
+module.exports = { generateSPKPdf, generateMitraInvoicePdf, htmlToPdf, closeBrowser, buildPaymentStatus, resolveFotoDataUrl };
