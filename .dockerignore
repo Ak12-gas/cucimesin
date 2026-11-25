@@ -1,10 +1,53 @@
+# Jangan kirim rahasia, data lokal, atau artefak dev ke Docker build context.
+# Dockerfile hanya butuh file runtime/app: package*.json, server/routes/db/utils/
+# services/middleware/templates/public/api, dan file yang diperlukan npm ci/start.
+
+# VCS dan metadata lokal
+.git/
+.github/
+.vscode/
+.DS_Store
+.playwright-mcp/
+
+# Dependensi dan artefak install lokal
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Rahasia dan env lokal (template dokumentasi tetap disertakan)
 .env
 .env.*
 !.env.example
-.git
-.vscode
-node_modules
-data
-uploads
-npm-debug.log*
-coverage
+
+# Data lokal, upload, dan database legacy
+data/
+uploads/
+payment-proofs/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Backup/arsip lama yang tidak diperlukan runtime
+api-backup/
+
+# Log, coverage, dan artefak test/dev sementara
+coverage/
+.nyc_output/
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+
+# Deployment artefak platform lokal
+.vercel/
+
+# File sementara OS/editor
+Thumbs.db
+*.swp
+*.swo
+*~

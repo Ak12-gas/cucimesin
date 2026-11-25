@@ -1,4 +1,5 @@
-require('dotenv').config();
+require('./utils/env').loadEnvIfAllowed();
+const { validateStagingConfig } = require('./utils/staging-config');
 require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
@@ -6,6 +7,7 @@ const path = require('path');
 
 function createApp() {
   const app = express();
+  app.disable('x-powered-by');
   const trustedProxy = process.env.TRUST_PROXY?.trim();
   if (trustedProxy && trustedProxy.toLowerCase() !== 'false') {
     if (trustedProxy.toLowerCase() === 'true') {
@@ -22,14 +24,36 @@ function createApp() {
   }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
 
   const { uploadDir } = require('./middleware/upload');
+  const denyPrivateUploadPath = (req, res, next) => {
+    const raw = `${req.baseUrl || ''}${req.path || ''}`;
+    let decoded = raw;
+    try { decoded = decodeURIComponent(raw); } catch (_e) { return res.status(400).json({ error: 'Bad request' }); }
+    const normalized = decoded.replace(/\\/g, '/').toLowerCase();
+    if (/\/(spk|payment-proofs)(\/|$)/i.test(normalized)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return next();
+  };
+  app.use('/uploads', denyPrivateUploadPath);
   app.use('/uploads', express.static(uploadDir, {
     dotfiles: 'deny',
     index: false,
     setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff')
   }));
   if (process.env.VERCEL) {
+    app.use('/api/uploads', denyPrivateUploadPath);
     app.use('/api/uploads', express.static(uploadDir, {
       dotfiles: 'deny',
       index: false,
@@ -39,6 +63,15 @@ function createApp() {
   app.use(express.static(path.join(__dirname, 'public')));
 
   app.get('/api', (req, res) => res.json({ name: 'CuciMesin API', version: '1.0.0', status: 'ok' }));
+
+  app.get('/api/health', async (_req, res) => {
+    try {
+      await require('./db/database').get('SELECT 1');
+      res.json({ status: 'ok', db: 'ok' });
+    } catch (error) {
+      res.status(503).json({ status: 'error', db: 'down' });
+    }
+  });
 
   app.use('/api/auth',       require('./routes/auth'));
   app.use('/api/dashboard',  require('./routes/dashboard'));
@@ -62,7 +95,10 @@ function createApp() {
       return res.status(503).json({ error: 'Database tidak tersedia. Periksa DATABASE_URL dan koneksi Supabase.' });
     }
     const status = err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
-    res.status(status).json({ error: status === 500 ? 'Server error' : err.message });
+    const safeMessage = status >= 500
+      ? 'Server error'
+      : (err.expose === true && typeof err.message === 'string' && err.message ? err.message : 'Bad request');
+    res.status(status).json({ error: safeMessage });
   });
 
   return app;
@@ -71,6 +107,7 @@ function createApp() {
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   const start = async () => {
+    validateStagingConfig();
     const db = require('./db/database');
     await db.initialize();
     const app = createApp();

@@ -265,7 +265,7 @@ const cases = [
 
   ['pengaturan publik', 'GET', '/api/pengaturan/publik', null],
   ['pengaturan admin', 'GET', '/api/pengaturan', 'admin'],
-  ['ubah pengaturan', 'PUT', '/api/pengaturan', 'admin', { nama_aplikasi: 'CuciMesin' }],
+  ['ubah pengaturan', 'PUT', '/api/pengaturan', 'admin', { nama_bisnis: 'CuciMesin' }],
 
   ['register mitra', 'POST', '/api/mitra/register', null, { nama_showroom: 'Mitra Baru', email: 'mitrabaru@test', telepon: '081177777777', password: 'rahasia123' }],
   ['admin mitra', 'GET', '/api/mitra/admin/mitra', 'admin'],

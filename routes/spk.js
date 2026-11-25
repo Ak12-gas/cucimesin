@@ -8,17 +8,51 @@ const storage = require('../services/storage');
 const { loadSpk, authorizeSpk } = require('../middleware/spk-access');
 const { generateNoSPK, defaultChecklist, toLocalDateTimeString } = require('../utils/helper');
 const { generateSPKPdf } = require('../services/pdfservice');
+const { writeAudit } = require('../utils/audit');
 const router = express.Router();
 const VALID_PHOTO_TYPES = ['sebelum', 'sesudah'];
 
 const VALID_STATUSES = ['Menunggu', 'Dikerjakan', 'Selesai', 'Batal'];
 
-async function writeAudit(entityType, entityId, action, actor, detail = null, connection) {
-  if (!actor) return;
-  await db.run(`
-    INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `, [entityType, entityId, action, actor.id || null, actor.role || null, detail ? JSON.stringify(detail) : null], connection);
+const DETAIL_BASE_FIELDS = [
+  'id', 'no_spk', 'status', 'pelanggan', 'kategori', 'plat_nomor', 'merk_tipe',
+  'tahun', 'warna', 'layanan_nama', 'teknisi_nama', 'total',
+  'waktu_mulai', 'waktu_selesai', 'created_at'
+];
+const DETAIL_ADMIN_FIELDS = [
+  'pelanggan_telepon', 'pelanggan_email', 'pelanggan_id', 'mitra_id', 'layanan_id',
+  'teknisi_id', 'harga', 'diskon', 'catatan', 'durasi_menit'
+];
+const DETAIL_CONTACT_FIELDS = ['pelanggan_telepon', 'pelanggan_email'];
+const STATUS_RESPONSE_FIELDS = ['id', 'no_spk', 'status', 'waktu_mulai', 'waktu_selesai'];
+
+function pickFields(row, fields) {
+  const result = {};
+  for (const field of fields) {
+    if (row && Object.prototype.hasOwnProperty.call(row, field)) result[field] = row[field];
+  }
+  return result;
+}
+
+function toSpkDetailDto(spk, role) {
+  const fields = [...DETAIL_BASE_FIELDS];
+  if (role === 'admin') fields.push(...DETAIL_ADMIN_FIELDS);
+  if (role === 'pelanggan' || role === 'mitra') fields.push(...DETAIL_CONTACT_FIELDS);
+
+  const dto = pickFields(spk, fields);
+  if (role === 'admin' || role === 'teknisi') {
+    dto.checklist = (spk.checklist || []).map((item) => pickFields(item, ['id', 'item', 'selesai']));
+    dto.foto = (spk.foto || []).map((item) => pickFields(item, ['id', 'tipe']));
+    const laporanFields = role === 'admin'
+      ? ['laporan', 'teknisi_nama', 'created_at', 'updated_at']
+      : ['laporan'];
+    dto.laporan = spk.laporan ? pickFields(spk.laporan, laporanFields) : spk.laporan;
+  }
+  return dto;
+}
+
+function toSpkStatusDto(spk) {
+  return pickFields(spk, STATUS_RESPONSE_FIELDS);
 }
 
 function validateExistingReference(row, fieldName, tableName, message) {
@@ -184,7 +218,7 @@ router.get('/:id', auth(['admin', 'teknisi', 'pelanggan', 'mitra']), loadSpk, au
     WHERE r.spk_id=?
   `, [spk.id]);
 
-  res.json(spk);
+  res.json(toSpkDetailDto(spk, req.user.role));
 });
 
 router.post('/', auth(['admin']), async (req, res, next) => {
@@ -329,7 +363,7 @@ router.patch('/:id/status', auth(['admin', 'teknisi']), loadSpk, authorizeSpk, a
   }
 
   if (status === current.status) {
-    return res.json(current);
+    return res.json(toSpkStatusDto(current));
   }
 
   const updated = await db.transaction(async (connection) => {
@@ -352,7 +386,7 @@ router.patch('/:id/status', auth(['admin', 'teknisi']), loadSpk, authorizeSpk, a
     const result = await db.run(`UPDATE spk SET ${updates.join(', ')} WHERE id = ? AND status = ?`, [...values, current.status], connection);
 
     if (!result.affectedRows) {
-      return db.get(`
+      const fallback = await db.get(`
         SELECT spk.*, COALESCE(p.nama, m.nama_showroom) AS pelanggan,
                p.kategori, p.telepon AS pelanggan_telepon, p.email AS pelanggan_email,
                l.nama AS layanan_nama, l.durasi_menit, u.nama AS teknisi_nama
@@ -363,6 +397,7 @@ router.patch('/:id/status', auth(['admin', 'teknisi']), loadSpk, authorizeSpk, a
         LEFT JOIN users u ON u.id = spk.teknisi_id
         WHERE spk.id = ?
       `, [req.params.id], connection);
+      return toSpkStatusDto(fallback);
     }
 
     await writeAudit('spk', current.id, 'status_change', req.user, {
@@ -371,7 +406,7 @@ router.patch('/:id/status', auth(['admin', 'teknisi']), loadSpk, authorizeSpk, a
       no_spk: current.no_spk
     }, connection);
 
-    return db.get(`
+    const updated = await db.get(`
       SELECT spk.*, 
              COALESCE(p.nama, m.nama_showroom) AS pelanggan,
              p.kategori, p.telepon AS pelanggan_telepon, p.email AS pelanggan_email,
@@ -384,6 +419,7 @@ router.patch('/:id/status', auth(['admin', 'teknisi']), loadSpk, authorizeSpk, a
       LEFT JOIN users u ON u.id = spk.teknisi_id
       WHERE spk.id = ?
     `, [req.params.id], connection);
+    return toSpkStatusDto(updated);
   });
 
   res.json(updated);
@@ -464,6 +500,113 @@ router.patch('/:id/checklist/:itemId', auth(['teknisi', 'admin']), loadSpk, auth
 });
 
 
+function parsePositiveInt(value) {
+  if (!/^[1-9]\d*$/.test(String(value))) return null;
+  const n = Number(value);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+async function loadAuthorizedSpkFoto(req, res) {
+  const spkId = parsePositiveInt(req.params.id);
+  const fotoId = parsePositiveInt(req.params.fotoId);
+  if (!spkId || !fotoId) {
+    res.status(400).json({ error: 'ID SPK atau foto tidak valid' });
+    return null;
+  }
+
+  // Reuse loaded SPK from middleware (loadSpk + authorizeSpk already ran)
+  const spk = req.spk;
+  if (!spk || Number(spk.id) !== spkId) {
+    res.status(404).json({ error: 'SPK tidak ditemukan' });
+    return null;
+  }
+
+  const foto = await db.get('SELECT id, spk_id, path, tipe FROM spk_foto WHERE id = ? AND spk_id = ?', [fotoId, spkId]);
+  if (!foto) {
+    res.status(404).json({ error: 'Foto SPK tidak ditemukan' });
+    return null;
+  }
+
+  let resolved;
+  try {
+    resolved = storage.toObjectPath('spk_photo', foto.path, { mode: 'compat' });
+  } catch (_error) {
+    res.status(400).json({ error: 'Path foto tidak valid' });
+    return null;
+  }
+  const objectPath = typeof resolved === 'string' ? resolved : resolved?.objectPath;
+  if (!objectPath) {
+    res.status(400).json({ error: 'Path foto tidak valid' });
+    return null;
+  }
+
+  return { spk, foto, objectPath };
+}
+
+function setPrivateNoStoreHeaders(res, contentType) {
+  if (contentType) res.setHeader('Content-Type', contentType);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Pragma', 'no-cache');
+}
+
+router.get('/:id/foto/:fotoId', auth(['admin', 'teknisi', 'pelanggan', 'mitra']), loadSpk, authorizeSpk, async (req, res) => {
+  const loaded = await loadAuthorizedSpkFoto(req, res);
+  if (!loaded) return;
+  const { objectPath } = loaded;
+
+  // Explicit signed mode only when requested
+  if (String(req.query.delivery || '').toLowerCase() === 'signed') {
+    try {
+      const signed = await storage.createSignedUrl('spk_photo', objectPath, 60);
+      const url = signed?.url;
+      const expiresInSeconds = signed?.expiresInSeconds ?? 60;
+      if (!url || typeof url !== 'string') {
+        return res.status(502).json({ error: 'Gagal membuat akses foto' });
+      }
+      setPrivateNoStoreHeaders(res, 'application/json; charset=utf-8');
+      return res.json({ url, expiresInSeconds: 60, delivery: 'signed' });
+    } catch (_error) {
+      return res.status(502).json({ error: 'Gagal membuat akses foto' });
+    }
+  }
+
+  try {
+    const downloadResult = await storage.download('spk_photo', objectPath);
+    const bytes = Buffer.isBuffer(downloadResult) ? downloadResult : downloadResult?.bytes;
+    const contentType = (!Buffer.isBuffer(downloadResult) && downloadResult?.contentType)
+      ? downloadResult.contentType
+      : storage.contentTypeForPath(objectPath);
+    if (!Buffer.isBuffer(bytes)) {
+      return res.status(404).json({ error: 'Foto SPK tidak ditemukan' });
+    }
+    setPrivateNoStoreHeaders(res, contentType || 'application/octet-stream');
+    return res.send(bytes);
+  } catch (error) {
+    const status = error?.status || error?.statusCode;
+    if (status === 404) return res.status(404).json({ error: 'Foto SPK tidak ditemukan' });
+    if (status === 400) return res.status(400).json({ error: 'Path foto tidak valid' });
+    return res.status(502).json({ error: 'Gagal mengambil foto SPK' });
+  }
+});
+
+router.get('/:id/foto/:fotoId/url', auth(['admin', 'teknisi', 'pelanggan', 'mitra']), loadSpk, authorizeSpk, async (req, res) => {
+  const loaded = await loadAuthorizedSpkFoto(req, res);
+  if (!loaded) return;
+  const { objectPath } = loaded;
+  try {
+    const signed = await storage.createSignedUrl('spk_photo', objectPath, 60);
+    const url = signed?.url;
+    if (!url || typeof url !== 'string') {
+      return res.status(502).json({ error: 'Gagal membuat akses foto' });
+    }
+    setPrivateNoStoreHeaders(res, 'application/json; charset=utf-8');
+    return res.json({ url, expiresInSeconds: 60, delivery: 'signed' });
+  } catch (_error) {
+    return res.status(502).json({ error: 'Gagal membuat akses foto' });
+  }
+});
+
 router.post('/:id/foto', auth(['teknisi', 'admin']), loadSpk, authorizeSpk, upload.single('foto'), async (req, res) => {
   const { tipe } = req.body;
 
@@ -480,10 +623,12 @@ router.post('/:id/foto', auth(['teknisi', 'admin']), loadSpk, authorizeSpk, uplo
   }
 
   const extension = path.extname(req.file.originalname).toLowerCase();
-  const objectPath = `spk/${req.params.id}/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
+  const spkId = req.spk.id;
+  const objectPath = `spk/${spkId}/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
   let storedPath;
   try {
-    storedPath = await storage.upload(objectPath, req.file.buffer, req.file.mimetype);
+    const uploadResult = await storage.upload('spk_photo', objectPath, req.file.buffer, req.file.mimetype);
+    storedPath = typeof uploadResult === 'string' ? uploadResult : uploadResult.objectPath;
   } catch (error) {
     console.error('[UPLOAD] gagal menyimpan foto SPK:', error.message);
     return res.status(503).json({ error: 'Gagal menyimpan foto. Coba lagi nanti.' });
@@ -491,19 +636,21 @@ router.post('/:id/foto', auth(['teknisi', 'admin']), loadSpk, authorizeSpk, uplo
 
   try {
     const r = await db.run('INSERT INTO spk_foto (spk_id, tipe, path) VALUES (?,?,?)',
-      [req.params.id, tipe, storedPath]);
+      [spkId, tipe, storedPath]);
 
     await writeAudit('spk_foto', Number(r.insertId), 'upload_foto', req.user, {
-      spk_id: Number(req.params.id),
+      spk_id: Number(spkId),
       tipe,
       path: storedPath
     });
 
     res.status(201).json(await db.get('SELECT * FROM spk_foto WHERE id=?', [r.insertId]));
   } catch (error) {
-    await storage.remove(objectPath).catch(() => {});
+    await storage.remove('spk_photo', objectPath).catch(() => {});
     throw error;
   }
 });
 
 module.exports = router;
+module.exports.toSpkDetailDto = toSpkDetailDto;
+module.exports.toSpkStatusDto = toSpkStatusDto;

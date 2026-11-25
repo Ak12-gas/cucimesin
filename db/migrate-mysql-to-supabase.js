@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../utils/env').loadEnvIfAllowed();
 const mysql = require('mysql2/promise');
 const db = require('./database');
 

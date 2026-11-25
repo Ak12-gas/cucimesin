@@ -208,3 +208,12 @@ test('forgot-password tidak membocorkan akun yang tidak ada', async () => {
   assert.equal(result.body.dev_token, undefined);
   assert.equal(resets.length, 1);
 });
+
+test('login gagal tidak membedakan akun tidak ditemukan dan password salah', async () => {
+  const missing = await call('/api/auth/login', { identifier: 'tidakada@example.com', password: 'salah123' });
+  const wrong = await call('/api/auth/login', { identifier: 'uji@example.com', password: 'salah123' });
+
+  assert.equal(missing.status, 401);
+  assert.equal(wrong.status, 401);
+  assert.deepEqual(missing.body, wrong.body);
+});

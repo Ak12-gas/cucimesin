@@ -1,9 +1,12 @@
 const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
+const rateLimit = require('../middleware/rate-limit');
+const { writeAudit } = require('../utils/audit');
 const { defaultChecklist, generateNoSPK } = require('../utils/helper');
 const { parseAppDateTime, isValidAppDate } = require('../utils/timezone');
 const router = express.Router();
+const publicLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 
 // Fungsi bantuan tetap dipertahankan
 function isValidDateTime(dateValue, timeValue) {
@@ -13,6 +16,7 @@ function isValidDateTime(dateValue, timeValue) {
 function httpError(status, message) {
   const error = new Error(message);
   error.status = status;
+  error.expose = true;
   return error;
 }
 
@@ -20,6 +24,8 @@ async function lockBookingDate(connection, date) {
   await db.run('INSERT INTO booking_schedule_lock (tanggal) VALUES (?) ON CONFLICT (tanggal) DO NOTHING', [date], connection);
   await db.get('SELECT tanggal FROM booking_schedule_lock WHERE tanggal=? FOR UPDATE', [date], connection);
 }
+
+const SCHEDULE_CONFLICT_MESSAGE = 'Jadwal tersebut sudah dipesan. Silakan pilih waktu lain.';
 
 async function ensureScheduleAvailable(date, time, connection, excludeBookingId) {
   const params = [date, time];
@@ -34,12 +40,17 @@ async function ensureScheduleAvailable(date, time, connection, excludeBookingId)
   sql += ' LIMIT 1';
 
   const existing = await db.get(sql, params, connection);
-  if (existing) {
-    throw httpError(409, 'Jadwal tersebut sudah dipesan. Silakan pilih waktu lain.');
-  }
+  if (existing) throw httpError(409, SCHEDULE_CONFLICT_MESSAGE);
+
+  const mitraExisting = await db.get(`
+    SELECT id FROM booking_armada
+    WHERE tanggal=? AND waktu=? AND status <> 'Batal'
+    LIMIT 1
+  `, [date, time], connection);
+  if (mitraExisting) throw httpError(409, SCHEDULE_CONFLICT_MESSAGE);
 }
 
-router.get('/availability', async (req, res, next) => {
+router.get('/availability', publicLimit, async (req, res, next) => {
   const date = typeof req.query.date === 'string' ? req.query.date : '';
   if (!isValidDateTime(date, '00:00')) {
     return res.status(400).json({ error: 'Tanggal booking tidak valid' });
@@ -193,11 +204,17 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
             throw httpError(409, 'Booking ini tidak memiliki jadwal valid untuk diaktifkan kembali');
           }
 
+          let createdSpkId = null;
           if (booking.status === 'Batal' && newStatus !== 'Batal' &&
               !(newStatus === 'Dikonversi' && !booking.spk_id)) {
             await lockBookingDate(connection, booking.tanggal);
             await ensureScheduleAvailable(booking.tanggal, booking.waktu, connection, bookingId);
             await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
+            await writeAudit('booking', bookingId, 'status_change', req.user, {
+              from: booking.status,
+              to: newStatus,
+              spk_id: booking.spk_id || null
+            }, connection);
             return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
           }
 
@@ -260,10 +277,17 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
               );
             }
 
+            createdSpkId = result.insertId;
             await db.run('UPDATE booking SET status=?, spk_id=? WHERE id=?', [newStatus, result.insertId, bookingId], connection);
           } else {
             await db.run('UPDATE booking SET status=? WHERE id=?', [newStatus, bookingId], connection);
           }
+
+          await writeAudit('booking', bookingId, 'status_change', req.user, {
+            from: booking.status,
+            to: newStatus,
+            spk_id: createdSpkId || booking.spk_id || null
+          }, connection);
 
           return db.get('SELECT * FROM booking WHERE id=?', [bookingId], connection);
         });
@@ -280,7 +304,9 @@ router.patch('/:id/status', auth(['admin']), async (req, res, next) => {
 });
 
 
-router.post('/', auth(['pelanggan']), createBooking);
-router.post('/me', auth(['pelanggan']), createBooking);
+router.post('/', auth(['pelanggan']), publicLimit, createBooking);
+router.post('/me', auth(['pelanggan']), publicLimit, createBooking);
 
 module.exports = router;
+module.exports.lockBookingDate = lockBookingDate;
+module.exports.ensureScheduleAvailable = ensureScheduleAvailable;

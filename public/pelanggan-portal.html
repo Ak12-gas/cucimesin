@@ -659,8 +659,12 @@ let bookedBookingTimes = new Set();
 let bookingAvailabilityRequest = 0;
 let bookingAvailabilityDate = '';
 let customerHistoryRows = [];
-let customerPaymentData = { rekening: {}, pembayaran: [] };
+let customerPaymentData = { rekening: null, pembayaran: [] };
 let customerDataRequestInProgress = false;
+let customerPaymentRekening = null;
+let customerPaymentRekeningRequest = 0;
+const PAYMENT_PROOF_MAX_MB = 4;
+const PAYMENT_PROOF_MAX_BYTES = PAYMENT_PROOF_MAX_MB * 1024 * 1024;
 
 function migrateCustomerSession(){
   const legacyToken = localStorage.getItem('cucimesin_token');
@@ -808,7 +812,7 @@ function renderHistoryRow(row){
 
   const showDownload = row.jenis === 'spk' && row.status === 'Selesai';
   const downloadBtn = showDownload
-    ? `<button class="btn btn-outline" onclick="downloadSpkPdf(${row.id}, '${escapeHtml(row.no_spk || '')}')">Unduh Nota / SPK</button>`
+    ? `<button class="btn btn-outline" data-spk-download data-spk-id="${escapeHtml(String(row.id))}" data-spk-number="${escapeHtml(String(row.no_spk || ''))}">Unduh Nota / SPK</button>`
     : '';
 
   const amountCell = row.total
@@ -842,6 +846,9 @@ function renderHistoryLists(rows){
 }
 
 async function downloadSpkPdf(spkId, spkNumber){
+  const id = Number(spkId);
+  if (!Number.isInteger(id) || id < 1) return;
+
   const token = localStorage.getItem(TOKEN_KEY);
 
   if (!token) {
@@ -850,7 +857,7 @@ async function downloadSpkPdf(spkId, spkNumber){
   }
 
   try {
-    const response = await fetch(`/api/spk/${spkId}/pdf`, {
+    const response = await fetch(`/api/spk/${id}/pdf`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -868,7 +875,7 @@ async function downloadSpkPdf(spkId, spkNumber){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${spkNumber || `SPK-${spkId}`}.pdf`;
+    a.download = `${spkNumber || `SPK-${id}`}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -876,6 +883,14 @@ async function downloadSpkPdf(spkId, spkNumber){
   } catch (error) {
     alert(error.message || 'Gagal mengunduh PDF SPK');
   }
+}
+
+function handleSpkDownloadClick(event){
+  const button = event.target.closest?.('button[data-spk-download]');
+  if (!button) return;
+  const id = Number(button.dataset.spkId);
+  if (!Number.isInteger(id) || id < 1) return;
+  downloadSpkPdf(id, button.dataset.spkNumber);
 }
 
 /* ===== Sinkronisasi Beranda ===== */
@@ -1016,6 +1031,7 @@ function renderCustomerPaymentOptions(rows){
   if (!completedOrders.length) {
     section.style.display = 'none';
     section.innerHTML = '';
+    customerPaymentRekening = null;
     return;
   }
   if (customerPaymentData.error) {
@@ -1024,23 +1040,29 @@ function renderCustomerPaymentOptions(rows){
     return;
   }
 
-  const rekening = customerPaymentData.rekening || {};
-  const hasAccount = Boolean(rekening.bank && rekening.nomor && rekening.pemilik);
+  const hasEligibleOrder = completedOrders.some(order => {
+    const payment = customerPaymentData.pembayaran.find(item => Number(item.spk_id) === Number(order.id));
+    const status = payment?.status_pembayaran || '';
+    return !status || status === 'Ditolak';
+  });
+  if (!hasEligibleOrder) customerPaymentRekening = null;
+  const rekening = customerPaymentRekening;
+  const hasAccount = Boolean(rekening?.bank && rekening?.nomor && rekening?.pemilik);
   section.style.display = 'block';
   section.innerHTML = `
     <div class="card-head">
       <h3>Sistem Pembayaran</h3>
       <span class="tag-done">Layanan Selesai</span>
     </div>
-    <p class="payment-note">Pembayaran saat ini menggunakan transfer bank manual. Transfer sesuai nominal pada setiap tagihan, lalu kirim bukti untuk diverifikasi admin.</p>
+    <p class="payment-note">Pembayaran menggunakan transfer bank manual. Klik <b>Bayar</b> pada tagihan eligible untuk memuat rekening tujuan, lalu unggah bukti transfer.</p>
     ${hasAccount ? `
-      <div class="payment-account">
+      <div class="payment-account" id="customerPaymentAccountBox">
         <div><b>Bank</b> ${escapeHtml(rekening.bank)}</div>
         <div class="payment-account-row"><span><b>Nomor rekening</b> <span id="paymentAccountNumberText">${escapeHtml(rekening.nomor)}</span></span>
           <button class="btn btn-outline" type="button" onclick="copyCustomerPaymentAccount()">Salin nomor</button></div>
         <div><b>Atas nama</b> ${escapeHtml(rekening.pemilik)}</div>
-      </div>` : '<p class="payment-feedback" role="status">Informasi rekening belum tersedia. Silakan hubungi admin.</p>'}
-    ${hasAccount ? '<ol class="payment-steps"><li>Pilih tagihan dan transfer tepat sesuai nominal.</li><li>Unggah foto/screenshot bukti transfer (JPG, PNG, atau WebP, maksimal 5 MB).</li><li>Tunggu verifikasi admin. Jika bukti ditolak, baca alasannya lalu unggah ulang.</li></ol>' : ''}
+      </div>
+      <ol class="payment-steps"><li>Transfer tepat sesuai nominal tagihan.</li><li>Unggah foto/screenshot bukti transfer (JPG, PNG, atau WebP, maksimal ${PAYMENT_PROOF_MAX_MB} MB).</li><li>Tunggu verifikasi admin. Jika bukti ditolak, baca alasannya lalu unggah ulang.</li></ol>` : (hasEligibleOrder ? '<p class="payment-feedback" id="customerPaymentAccountHint" role="status">Rekening ditampilkan setelah Anda menekan tombol Bayar pada tagihan yang eligible.</p>' : '<p class="payment-feedback" role="status">Tidak ada tagihan yang perlu dibayar saat ini.</p>')}
     <p class="payment-feedback" id="customerPaymentMessage" role="status" aria-live="polite"></p>
     ${completedOrders.map(order => {
       const payment = customerPaymentData.pembayaran.find(item => Number(item.spk_id) === Number(order.id));
@@ -1049,6 +1071,7 @@ function renderCustomerPaymentOptions(rows){
         : status === 'Menunggu Konfirmasi' ? 'pending'
         : status === 'Dikonfirmasi' ? ''
         : 'unpaid';
+      const eligible = !status || status === 'Ditolak';
       const canUpload = hasAccount && status !== 'Dikonfirmasi' && status !== 'Menunggu Konfirmasi';
       return `
         <div class="payment-record">
@@ -1059,6 +1082,10 @@ function renderCustomerPaymentOptions(rows){
           ${status === 'Dikonfirmasi' ? `<p class="payment-note">Pembayaran sebesar ${formatCurrency(payment.nominal)} sudah dikonfirmasi.</p>` : ''}
           ${status === 'Ditolak' ? `<p class="payment-feedback" role="status">Bukti ditolak: ${escapeHtml(payment.catatan_admin || 'Silakan unggah ulang bukti transfer yang benar.')}</p>` : ''}
           ${payment?.has_bukti && payment.pembayaran_id ? `<div class="payment-actions"><button class="btn btn-outline" type="button" onclick="viewCustomerPaymentProof(${Number(payment.pembayaran_id)})">Lihat bukti terkirim</button></div>` : ''}
+          ${eligible ? `
+            <div class="payment-actions">
+              <button class="btn btn-outline" id="paymentPayBtn-${Number(order.id)}" type="button" onclick="loadCustomerPaymentAccount(${Number(order.id)})">${hasAccount ? 'Tampilkan Rekening' : 'Bayar'}</button>
+            </div>` : ''}
           ${canUpload ? `
             <div class="payment-upload">
               <input id="paymentProof-${Number(order.id)}" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Bukti transfer ${escapeHtml(order.no_spk || '')}" onchange="validateCustomerPaymentFile(${Number(order.id)})">
@@ -1084,15 +1111,55 @@ function validateCustomerPaymentFile(spkId){
     feedback.style.color = 'var(--red)';
     return false;
   }
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > PAYMENT_PROOF_MAX_BYTES) {
     input.value = '';
-    feedback.textContent = 'Ukuran bukti pembayaran maksimal 5 MB.';
+    feedback.textContent = `Ukuran bukti pembayaran maksimal ${PAYMENT_PROOF_MAX_MB} MB.`;
     feedback.style.color = 'var(--red)';
     return false;
   }
   feedback.textContent = `${file.name} siap dikirim (${(file.size / 1024 / 1024).toFixed(2)} MB).`;
   feedback.style.color = 'var(--green-text)';
   return true;
+}
+
+async function loadCustomerPaymentAccount(spkId){
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  const button = document.getElementById(`paymentPayBtn-${spkId}`);
+  const message = document.getElementById('customerPaymentMessage');
+  const requestId = ++customerPaymentRekeningRequest;
+  if (button) { button.disabled = true; button.textContent = 'Memuat rekening...'; }
+  if (message) { message.style.color = 'var(--muted)'; message.textContent = 'Memuat rekening pembayaran...'; }
+  try {
+    const response = await fetch('/api/pembayaran/rekening', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Rekening tidak tersedia saat ini.');
+    if (requestId !== customerPaymentRekeningRequest) return;
+    customerPaymentRekening = {
+      bank: String(data.bank || '').trim(),
+      nomor: String(data.nomor || '').trim(),
+      pemilik: String(data.pemilik || '').trim()
+    };
+    renderCustomerPaymentOptions(customerHistoryRows);
+    const updatedMessage = document.getElementById('customerPaymentMessage');
+    if (updatedMessage) {
+      updatedMessage.style.color = 'var(--green-text)';
+      updatedMessage.textContent = 'Rekening ditampilkan. Silakan transfer sesuai nominal lalu unggah bukti.';
+    }
+    document.getElementById('customerPaymentAccountBox')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (error) {
+    if (requestId !== customerPaymentRekeningRequest) return;
+    if (message) {
+      message.style.color = 'var(--red)';
+      message.textContent = error.message || 'Gagal memuat rekening pembayaran.';
+    }
+  } finally {
+    if (button && document.getElementById(`paymentPayBtn-${spkId}`) === button) {
+      button.disabled = false;
+      button.textContent = customerPaymentRekening ? 'Tampilkan Rekening' : 'Bayar';
+    }
+  }
 }
 
 async function copyCustomerPaymentAccount(){
@@ -1179,6 +1246,7 @@ async function submitCustomerPayment(spkId){
     if (!response.ok) throw new Error(data.error || 'Gagal mengirim bukti pembayaran');
     feedback.style.color = 'var(--green-text)';
     feedback.textContent = 'Bukti berhasil dikirim. Pembayaran menunggu verifikasi admin.';
+    customerPaymentRekening = null;
     await loadPelangganData(token);
   } catch (error) {
     feedback.textContent = error.message || 'Gagal mengirim bukti pembayaran.';
@@ -1780,8 +1848,8 @@ async function requestPasswordReset(){
     if (!response.ok) throw new Error(data.error || 'Gagal mengirim instruksi');
     if (data.dev_token) {
       document.getElementById('resetToken').value = data.dev_token;
-      setAuthMessage('forgotMessage', `${data.message} Kode pengujian: ${data.dev_token}`, true);
-      setAuthMessage('resetMessage', `Kode pengujian: ${data.dev_token}`, true);
+      setAuthMessage('forgotMessage', `${data.message} Kode pengujian terisi otomatis (mode pengembangan).`, true);
+      setAuthMessage('resetMessage', 'Kode pengujian terisi otomatis. Lanjutkan reset kata sandi.', true);
     } else {
       setAuthMessage('forgotMessage', data.message, true);
       setAuthMessage('resetMessage', data.message, true);
@@ -1908,6 +1976,9 @@ function updateProfileStatsFromSpk(rows){
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  ['homeHistoryList', 'riwayatHistoryList'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('click', handleSpkDownloadClick);
+  });
   document.getElementById('bookingTanggal')?.addEventListener('change', loadPortalBookingAvailability);
   document.getElementById('bookingWaktu')?.addEventListener('change', validatePortalBookingTime);
   window.setInterval(() => {

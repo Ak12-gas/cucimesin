@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../utils/env').loadEnvIfAllowed();
 const bcrypt = require('bcryptjs');
 const db = require('./database');
 const hash = (value) => bcrypt.hashSync(value, 10);

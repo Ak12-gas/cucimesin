@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 const rateLimit = require('../middleware/rate-limit');
 const { signUser } = require('../utils/security');
 const { toAppDateTime, parseAppDateTime } = require('../utils/timezone');
+const { writeAudit } = require('../utils/audit');
 const router = express.Router();
 
 const publicAuthLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
@@ -15,6 +16,7 @@ const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 function httpError(status, message) {
   const error = new Error(message);
   error.status = status;
+  error.expose = true;
   return error;
 }
 
@@ -44,21 +46,23 @@ router.post('/login', publicAuthLimit, async (req, res, next) => {
   const { password, role } = req.body;
   if (!identifier || !password) return res.status(400).json({ error: 'Identifier & password wajib' });
 
+  const userColumns = 'id, nama, email, telepon, role, mitra_id, aktif, password';
   let user;
   if (role) {
     user = await db.get(
-      'SELECT * FROM users WHERE (email=? OR telepon=?) AND role=?',
+      `SELECT ${userColumns} FROM users WHERE (email=? OR telepon=?) AND role=?`,
       [identifier, identifier, role]
     );
   } else {
     user = await db.get(
-      'SELECT * FROM users WHERE email=? OR telepon=?',
+      `SELECT ${userColumns} FROM users WHERE email=? OR telepon=?`,
       [identifier, identifier]
     );
   }
 
-  if (!user) return res.status(401).json({ error: 'Akun tidak ditemukan' });
-  if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Password salah' });
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Email/telepon atau password salah' });
+  }
   if (!user.aktif) return res.status(403).json({ error: 'Akun dinonaktifkan' });
 
   res.json({ token: signUser(user), user: publicUser(user) });
@@ -91,7 +95,7 @@ router.post('/register', publicAuthLimit, async (req, res) => {
       'INSERT INTO pelanggan (user_id, nama, telepon, email, kategori) VALUES (?,?,?,?,?)',
       [result.insertId, nama, telepon, cleanEmail, 'Normal'], connection
     );
-    return db.get('SELECT * FROM users WHERE id=?', [result.insertId], connection);
+    return db.get('SELECT id, nama, email, telepon, role, mitra_id, aktif FROM users WHERE id=?', [result.insertId], connection);
   });
 
   res.status(201).json({ token: signUser(user), user: publicUser(user) });
@@ -147,6 +151,7 @@ router.post('/reset-password', passwordResetLimit, async (req, res) => {
   }
 
   const tokenHash = hashResetToken(token);
+  let resetUserId = null;
   await db.transaction(async (connection) => {
     const record = await db.get(
       'SELECT id, user_id, expires_at, used_at FROM password_reset WHERE token_hash=?',
@@ -168,7 +173,9 @@ router.post('/reset-password', passwordResetLimit, async (req, res) => {
       [bcrypt.hashSync(password, 10), claimed.user_id], connection);
     await db.run('UPDATE password_reset SET used_at=CURRENT_TIMESTAMP WHERE user_id=? AND used_at IS NULL',
       [claimed.user_id], connection);
+    resetUserId = claimed.user_id;
   });
+  if (resetUserId) await writeAudit('user', resetUserId, 'password_reset', { id: resetUserId, role: null }, { method: 'token' });
 
   res.json({ message: 'Password berhasil direset. Silakan masuk dengan kata sandi baru.' });
 });
@@ -193,6 +200,7 @@ router.put('/password', auth(['pelanggan','teknisi','mitra','admin']), async (re
   }
   await db.run('UPDATE users SET password=? WHERE id=?',
     [bcrypt.hashSync(password_baru, 10), req.user.id]);
+  await writeAudit('user', req.user.id, 'password_change', req.user, { method: 'self' });
   res.json({ message: 'Password berhasil diperbarui' });
 });
 

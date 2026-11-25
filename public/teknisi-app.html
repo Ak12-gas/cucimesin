@@ -504,6 +504,113 @@ function authHeaders(extra = {}){
   return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
 }
 
+// ---- Private SPK photo (Blob + Authorization) ----
+const spkPhotoBlobUrls = new Map();
+const spkPhotoControllers = new Map();
+
+function revokeSpkPhotoBlobUrl(key) {
+  const url = spkPhotoBlobUrls.get(key);
+  if (url) {
+    try { URL.revokeObjectURL(url); } catch (_e) {}
+    spkPhotoBlobUrls.delete(key);
+  }
+}
+
+function clearSpkPhotoBlobsForContainer(container) {
+  if (!container) return;
+  container.querySelectorAll('img[data-spk-photo-key]').forEach((img) => {
+    const key = img.dataset.spkPhotoKey;
+    if (key) {
+      revokeSpkPhotoBlobUrl(key);
+      spkPhotoControllers.delete(key);
+      delete img.dataset.spkPhotoKey;
+    }
+    img.removeAttribute('src');
+  });
+}
+
+function spkPhotoKey(spkId, fotoId) { return `spk:${spkId}:foto:${fotoId}`; }
+
+async function fetchSpkPhotoBlobUrl(spkId, fotoId, token) {
+  const key = spkPhotoKey(spkId, fotoId);
+  const prevController = spkPhotoControllers.get(key);
+  if (prevController) try { prevController.abort(); } catch (_e) {}
+  const controller = new AbortController();
+  spkPhotoControllers.set(key, controller);
+
+  const response = await fetch(`/api/spk/${encodeURIComponent(spkId)}/foto/${encodeURIComponent(fotoId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: controller.signal
+  });
+
+  if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  if (response.status === 401) { const err = new Error('Sesi berakhir. Silakan login ulang.'); err.status = 401; throw err; }
+  if (response.status === 403) { const err = new Error('Akses foto ditolak.'); err.status = 403; throw err; }
+  if (response.status === 404) { const err = new Error('Foto tidak ditemukan.'); err.status = 404; throw err; }
+  if (response.status === 502) { const err = new Error('Layanan penyimpanan sedang bermasalah.'); err.status = 502; throw err; }
+  if (!response.ok) { const err = new Error('Gagal memuat foto.'); err.status = response.status; throw err; }
+
+  const blob = await response.blob();
+  if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  const contentType = (blob.type || response.headers.get('content-type') || '').toLowerCase();
+  if (contentType && !contentType.startsWith('image/')) {
+    const err = new Error('Format foto tidak didukung.'); err.status = 415; throw err;
+  }
+
+  revokeSpkPhotoBlobUrl(key);
+  const objectUrl = URL.createObjectURL(blob);
+  spkPhotoBlobUrls.set(key, objectUrl);
+  spkPhotoControllers.delete(key);
+  return { key, url: objectUrl, status: 200 };
+}
+
+function setSpkPhotoError(img, message) {
+  if (!img) return;
+  const box = img.closest('.result-box,.photo-slot');
+  img.removeAttribute('src');
+  img.style.display = 'none';
+  let msg = box ? box.querySelector('.spk-photo-error') : null;
+  if (!msg && box) {
+    msg = document.createElement('div');
+    msg.className = 'spk-photo-error photo-status';
+    msg.style.color = '#b02a37';
+    img.insertAdjacentElement('afterend', msg);
+  }
+  if (msg) msg.textContent = message;
+}
+
+async function hydrateSpkPhotos(container) {
+  if (!container) return;
+  const token = getTeknisiToken();
+  const imgs = Array.from(container.querySelectorAll('img[data-spk-id][data-foto-id]'));
+  await Promise.all(imgs.map(async (img) => {
+    const spkId = img.dataset.spkId;
+    const fotoId = img.dataset.fotoId;
+    const key = spkPhotoKey(spkId, fotoId);
+    img.dataset.spkPhotoKey = key;
+    const existing = spkPhotoBlobUrls.get(key);
+    if (existing) { img.src = existing; img.style.display = ''; return; }
+    if (!token) { setSpkPhotoError(img, 'Sesi berakhir. Silakan login ulang.'); return; }
+    try {
+      const result = await fetchSpkPhotoBlobUrl(spkId, fotoId, token);
+      if (!img.isConnected || img.dataset.spkPhotoKey !== result.key) {
+        const stillUsed = container.querySelector(`img[data-spk-photo-key="${result.key}"]`);
+        if (!stillUsed) revokeSpkPhotoBlobUrl(result.key);
+        return;
+      }
+      img.src = result.url;
+      img.style.display = '';
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      if (error?.status === 401) { setSpkPhotoError(img, 'Sesi berakhir. Silakan login ulang.'); return; }
+      if (error?.status === 403) { setSpkPhotoError(img, 'Akses foto ditolak.'); return; }
+      if (error?.status === 404) { setSpkPhotoError(img, 'Foto tidak ditemukan.'); return; }
+      if (error?.status === 502) { setSpkPhotoError(img, 'Layanan penyimpanan bermasalah.'); return; }
+      setSpkPhotoError(img, 'Gagal memuat foto.');
+    }
+  }));
+}
+
 function escapeHtml(value){
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
@@ -628,16 +735,18 @@ function renderDetailScreen(task){
   const photoPreview = document.getElementById('detailPhotoPreview');
 
   if (photoPreview) {
+    clearSpkPhotoBlobsForContainer(photoPreview);
     photoPreview.innerHTML = `
       <div class="result-box">
-        ${fotoSebelum.length ? `<img src="${fotoSebelum[0].path}" alt="Foto sebelum" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
+        ${fotoSebelum.length ? `<img data-spk-id="${escapeHtml(task.id)}" data-foto-id="${escapeHtml(fotoSebelum[0].id)}" data-foto-tipe="sebelum" alt="Foto sebelum" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
         <div class="t">Foto Sebelum Cuci</div>
       </div>
       <div class="result-box">
-        ${fotoSesudah.length ? `<img src="${fotoSesudah[0].path}" alt="Foto sesudah" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
+        ${fotoSesudah.length ? `<img data-spk-id="${escapeHtml(task.id)}" data-foto-id="${escapeHtml(fotoSesudah[0].id)}" data-foto-tipe="sesudah" alt="Foto sesudah" style="width:100%;height:140px;object-fit:cover;border-radius:12px;" />` : '<div class="cam-ic">📷</div>'}
         <div class="t">Foto Setelah Selesai</div>
       </div>
     `;
+    hydrateSpkPhotos(photoPreview);
   }
 
   const reportCard = document.getElementById('detailReportCard');

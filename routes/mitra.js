@@ -7,6 +7,8 @@ const { signUser } = require('../utils/security');
 const { toLocalDateString, generateNoSPK, generateNoInvoice, defaultChecklist } = require('../utils/helper');
 const { isValidAppDate, parseAppDateTime } = require('../utils/timezone');
 const { generateMitraInvoicePdf } = require('../services/pdfservice');
+const { writeAudit } = require('../utils/audit');
+const { lockBookingDate, ensureScheduleAvailable } = require('./booking');
 const router = express.Router();
 const publicAuthLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 const publicUser = (u) => ({ id: u.id, nama: u.nama, email: u.email, telepon: u.telepon, role: u.role, mitra_id: u.mitra_id || null });
@@ -18,14 +20,23 @@ function validSchedule(tanggal, waktu) {
 }
 
 router.post('/register', publicAuthLimit, async (req, res) => {
-  const { nama_showroom, pic_nama, telepon, email, password } = req.body;
+  const nama_showroom = String(req.body.nama_showroom || '').trim();
+  const pic_nama = String(req.body.pic_nama || '').trim();
+  const telepon = String(req.body.telepon || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const password = req.body.password;
   if (!nama_showroom || !pic_nama || !telepon || !email || !password) return res.status(400).json({ error: 'Semua data mitra wajib diisi' });
-  if (password.length < 8) return res.status(400).json({ error: 'Password minimal 8 karakter' });
+  if (nama_showroom.length > 150 || pic_nama.length > 150 || telepon.length > 40 || email.length > 191) {
+    return res.status(400).json({ error: 'Data mitra melebihi batas panjang yang diizinkan' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Format email tidak valid' });
+  if (!/^[0-9+()\-\s]+$/.test(telepon)) return res.status(400).json({ error: 'Format nomor telepon tidak valid' });
+  if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'Password minimal 8 karakter' });
   if (await db.get('SELECT id FROM users WHERE telepon=? OR (email IS NOT NULL AND email=?)', [telepon, email])) return res.status(409).json({ error: 'Email atau nomor WhatsApp sudah terdaftar' });
   const user = await db.transaction(async (connection) => {
     const mitra = await db.run('INSERT INTO mitra (nama_showroom, alamat, telepon, email, pic_nama, pic_telepon, diskon_persen) VALUES (?, ?, ?, ?, ?, ?, ?)', [nama_showroom, null, telepon, email, pic_nama, telepon, 15], connection);
     const result = await db.run('INSERT INTO users (nama, email, telepon, password, role, mitra_id, aktif) VALUES (?, ?, ?, ?, ?, ?, ?)', [pic_nama, email, telepon, bcrypt.hashSync(password, 10), 'mitra', mitra.insertId, 1], connection);
-    return db.get('SELECT * FROM users WHERE id=?', [result.insertId], connection);
+    return db.get('SELECT id, nama, email, telepon, role, mitra_id, aktif FROM users WHERE id=?', [result.insertId], connection);
   });
   res.status(201).json({ token: signUser(user), user: publicUser(user) });
 });
@@ -144,10 +155,9 @@ router.post('/admin/invoices', auth(['admin']), async (req, res) => {
       await db.run('INSERT INTO invoice_mitra_spk (invoice_id, spk_id) VALUES (?, ?)',
         [invoiceId, row.id], connection);
     }
-    await db.run(`
-      INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-      VALUES ('invoice_mitra', ?, 'invoice_created', ?, 'admin', ?)
-    `, [invoiceId, req.user.id, JSON.stringify({ mitra_id: mitraId, no_invoice: noInvoice, total_unit: rows.length, ...totals })], connection);
+    await writeAudit('invoice_mitra', invoiceId, 'invoice_created', req.user, {
+      mitra_id: mitraId, no_invoice: noInvoice, total_unit: rows.length, ...totals
+    }, connection);
     return db.get('SELECT * FROM invoice_mitra WHERE id=?', [invoiceId], connection);
   });
   res.status(201).json(invoice);
@@ -241,14 +251,16 @@ router.patch('/admin/bookings/:id/status', auth(['admin']), async (req, res) => 
           await db.run('INSERT INTO spk_checklist (spk_id, item, urutan) VALUES (?,?,?)',
             [spkId, item, index], connection);
         }
-        await db.run(`
-          INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-          VALUES ('spk', ?, 'create_from_mitra_booking', ?, 'admin', ?)
-        `, [spkId, req.user.id, JSON.stringify({ booking_id: bookingId, no_spk: createdSpk[createdSpk.length - 1], mitra_id: booking.mitra_id })], connection);
+        await writeAudit('spk', spkId, 'create_from_mitra_booking', req.user, {
+          booking_id: bookingId, no_spk: createdSpk[createdSpk.length - 1], mitra_id: booking.mitra_id
+        }, connection);
       }
     }
 
     await db.run('UPDATE booking_armada SET status=? WHERE id=?', [newStatus, bookingId], connection);
+    await writeAudit('booking_armada', bookingId, 'status_change', req.user, {
+      from: booking.status, to: newStatus, created_spk: createdSpk
+    }, connection);
     return { booking: { ...booking, status: newStatus }, spk: createdSpk };
   });
   res.json(result);
@@ -305,11 +317,9 @@ router.patch('/admin/invoices/:id/payment-status', auth(['admin']), async (req, 
         [`Pembayaran ${current.no_invoice}`, current.total, current.mitra_id], connection
       );
     }
-    await db.run(`
-      INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-      VALUES ('invoice_mitra', ?, ?, ?, 'admin', ?)
-    `, [invoiceId, decision === 'verify' ? 'payment_verified' : 'payment_rejected', req.user.id,
-      JSON.stringify({ no_invoice: current.no_invoice })], connection);
+    await writeAudit('invoice_mitra', invoiceId, decision === 'verify' ? 'payment_verified' : 'payment_rejected', req.user, {
+      no_invoice: current.no_invoice
+    }, connection);
     return db.get('SELECT * FROM invoice_mitra WHERE id=?', [invoiceId], connection);
   });
   res.json(invoice);
@@ -401,11 +411,25 @@ router.get('/me/armada', auth(['mitra']), async (req, res) => {
 });
 
 router.post('/me/armada', auth(['mitra']), async (req, res) => {
-  const { plat_nomor, merk_tipe, tahun, warna } = req.body;
-  if (!plat_nomor || !String(plat_nomor).trim()) return res.status(400).json({ error: 'Plat nomor wajib diisi' });
+  const plat_nomor = String(req.body.plat_nomor || '').trim().toUpperCase();
+  const merk_tipe = req.body.merk_tipe == null ? null : String(req.body.merk_tipe).trim();
+  const tahun = req.body.tahun == null || req.body.tahun === '' ? null : Number(req.body.tahun);
+  const warna = req.body.warna == null ? null : String(req.body.warna).trim();
+  if (!plat_nomor) return res.status(400).json({ error: 'Plat nomor wajib diisi' });
+  if (plat_nomor.length > 30 || (merk_tipe && merk_tipe.length > 150) || (warna && warna.length > 50) ||
+      (tahun !== null && (!Number.isInteger(tahun) || tahun < 1900 || tahun > 2100))) {
+    return res.status(400).json({ error: 'Data armada tidak valid' });
+  }
   try {
-    const result = await db.run('INSERT INTO armada (mitra_id, plat_nomor, merk_tipe, tahun, warna) VALUES (?,?,?,?,?)', [req.user.mitra_id, String(plat_nomor).trim().toUpperCase(), merk_tipe || null, tahun || null, warna || null]);
-    res.status(201).json(await db.get('SELECT * FROM armada WHERE id=? AND mitra_id=?', [result.insertId, req.user.mitra_id]));
+    const result = await db.run(
+      'INSERT INTO armada (mitra_id, plat_nomor, merk_tipe, tahun, warna) VALUES (?,?,?,?,?)',
+      [req.user.mitra_id, plat_nomor, merk_tipe || null, tahun, warna || null]
+    );
+    await writeAudit('armada', result.insertId, 'create', req.user, { id: result.insertId, mitra_id: req.user.mitra_id });
+    res.status(201).json(await db.get(
+      'SELECT id, mitra_id, plat_nomor, merk_tipe, tahun, warna, aktif, created_at, updated_at FROM armada WHERE id=? AND mitra_id=?',
+      [result.insertId, req.user.mitra_id]
+    ));
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Plat nomor sudah terdaftar di armada mitra' });
     throw error;
@@ -413,13 +437,30 @@ router.post('/me/armada', auth(['mitra']), async (req, res) => {
 });
 
 router.put('/me/armada/:id', auth(['mitra']), async (req, res) => {
-  const { plat_nomor, merk_tipe, tahun, warna, aktif } = req.body;
+  const armadaId = Number(req.params.id);
+  const plat_nomor = String(req.body.plat_nomor || '').trim().toUpperCase();
+  const merk_tipe = req.body.merk_tipe == null ? null : String(req.body.merk_tipe).trim();
+  const tahun = req.body.tahun == null || req.body.tahun === '' ? null : Number(req.body.tahun);
+  const warna = req.body.warna == null ? null : String(req.body.warna).trim();
+  const aktif = req.body.aktif;
+  if (!Number.isInteger(armadaId) || armadaId < 1) return res.status(400).json({ error: 'ID armada tidak valid' });
   if (!plat_nomor) return res.status(400).json({ error: 'Plat nomor wajib diisi' });
   if (aktif !== undefined && typeof aktif !== 'boolean') return res.status(400).json({ error: 'Field aktif harus boolean' });
+  if (plat_nomor.length > 30 || (merk_tipe && merk_tipe.length > 150) || (warna && warna.length > 50) ||
+      (tahun !== null && (!Number.isInteger(tahun) || tahun < 1900 || tahun > 2100))) {
+    return res.status(400).json({ error: 'Data armada tidak valid' });
+  }
   try {
-    const result = await db.run('UPDATE armada SET plat_nomor=?, merk_tipe=?, tahun=?, warna=?, aktif=COALESCE(?, aktif), updated_at=CURRENT_TIMESTAMP WHERE id=? AND mitra_id=?', [String(plat_nomor).trim().toUpperCase(), merk_tipe || null, tahun || null, warna || null, aktif === undefined ? null : (aktif ? 1 : 0), Number(req.params.id), req.user.mitra_id]);
+    const result = await db.run(
+      'UPDATE armada SET plat_nomor=?, merk_tipe=?, tahun=?, warna=?, aktif=COALESCE(?, aktif), updated_at=CURRENT_TIMESTAMP WHERE id=? AND mitra_id=?',
+      [plat_nomor, merk_tipe || null, tahun, warna || null, aktif === undefined ? null : (aktif ? 1 : 0), armadaId, req.user.mitra_id]
+    );
     if (!result.affectedRows) return res.status(404).json({ error: 'Armada tidak ditemukan' });
-    res.json(await db.get('SELECT * FROM armada WHERE id=? AND mitra_id=?', [Number(req.params.id), req.user.mitra_id]));
+    await writeAudit('armada', armadaId, 'update', req.user, { id: armadaId, mitra_id: req.user.mitra_id });
+    res.json(await db.get(
+      'SELECT id, mitra_id, plat_nomor, merk_tipe, tahun, warna, aktif, created_at, updated_at FROM armada WHERE id=? AND mitra_id=?',
+      [armadaId, req.user.mitra_id]
+    ));
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Plat nomor sudah terdaftar di armada mitra' });
     throw error;
@@ -460,21 +501,28 @@ router.patch('/me/bookings/:id/status', auth(['mitra']), async (req, res) => {
       throw error;
     }
     await db.run("UPDATE booking_armada SET status='Batal' WHERE id=?", [bookingId], connection);
+    await writeAudit('booking_armada', bookingId, 'status_change', req.user, {
+      from: current.status, to: 'Batal'
+    }, connection);
     return { ...current, status: 'Batal' };
   });
   res.json(booking);
 });
 
 router.post('/me/bookings', auth(['mitra']), async (req, res) => {
-  const { layanan_id, armada_ids, tanggal, waktu, catatan } = req.body;
+  const { layanan_id, armada_ids, tanggal, waktu } = req.body;
+  const catatan = req.body.catatan == null ? null : String(req.body.catatan).trim();
   const layananId = Number(layanan_id);
   const ids = Array.isArray(armada_ids) ? [...new Set(armada_ids.map(Number))] : [];
   if (!Number.isInteger(layananId) || layananId < 1 || !ids.length || ids.length > 10 || ids.some((id) => !Number.isInteger(id) || id < 1)) return res.status(400).json({ error: 'Layanan dan 1 sampai 10 armada wajib dipilih' });
+  if (catatan && catatan.length > 500) return res.status(400).json({ error: 'Catatan maksimal 500 karakter' });
   if (!validSchedule(tanggal, waktu)) return res.status(400).json({ error: 'Tanggal atau waktu booking tidak valid' });
   const layanan = await db.get('SELECT id FROM layanan WHERE id=? AND aktif=1', [layananId]);
   if (!layanan) return res.status(400).json({ error: 'Layanan tidak ditemukan' });
 
   const booking = await db.transaction(async (connection) => {
+    await lockBookingDate(connection, tanggal);
+    await ensureScheduleAvailable(tanggal, waktu, connection);
     const placeholders = ids.map(() => '?').join(',');
     const units = await db.all(`SELECT id FROM armada WHERE mitra_id=? AND aktif=1 AND id IN (${placeholders})`, [req.user.mitra_id, ...ids], connection);
     if (units.length !== ids.length) {
@@ -484,6 +532,9 @@ router.post('/me/bookings', auth(['mitra']), async (req, res) => {
     }
     const result = await db.run('INSERT INTO booking_armada (mitra_id, layanan_id, tanggal, waktu, catatan) VALUES (?,?,?,?,?)', [req.user.mitra_id, layananId, tanggal, waktu, catatan || null], connection);
     for (const unit of units) await db.run('INSERT INTO booking_armada_unit (booking_id, armada_id) VALUES (?,?)', [result.insertId, unit.id], connection);
+    await writeAudit('booking_armada', result.insertId, 'create', req.user, {
+      id: result.insertId, mitra_id: req.user.mitra_id, total_unit: units.length
+    }, connection);
     return db.get('SELECT * FROM booking_armada WHERE id=?', [result.insertId], connection);
   });
   res.status(201).json(booking);
@@ -513,21 +564,34 @@ router.post('/me/invoices/:id/pay', auth(['mitra']), async (req, res) => {
       error.status = 409;
       throw error;
     }
-    await db.run(`
-      INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-      VALUES ('invoice_mitra', ?, 'payment_reported', ?, 'mitra', ?)
-    `, [current.id, req.user.id, JSON.stringify({ no_invoice: current.no_invoice })], connection);
+    await writeAudit('invoice_mitra', current.id, 'payment_reported', req.user, {
+      no_invoice: current.no_invoice
+    }, connection);
     return { ...current, payment_action: 'payment_reported' };
   });
   res.json(reported);
 });
 
 router.put('/me/profile', auth(['mitra']), async (req, res) => {
-  const { nama_showroom, alamat, telepon, pic_nama, pic_telepon } = req.body;
+  const nama_showroom = String(req.body.nama_showroom || '').trim();
+  const alamat = req.body.alamat == null ? null : String(req.body.alamat).trim();
+  const telepon = String(req.body.telepon || '').trim();
+  const pic_nama = String(req.body.pic_nama || '').trim();
+  const pic_telepon = req.body.pic_telepon == null ? null : String(req.body.pic_telepon).trim();
   if (!nama_showroom || !pic_nama || !telepon) return res.status(400).json({ error: 'Nama showroom, PIC, dan telepon wajib diisi' });
+  if (nama_showroom.length > 150 || pic_nama.length > 150 || telepon.length > 40 ||
+      (pic_telepon && pic_telepon.length > 40) || (alamat && alamat.length > 500)) {
+    return res.status(400).json({ error: 'Data profil mitra melebihi batas panjang yang diizinkan' });
+  }
+  if (!/^[0-9+()\-\s]+$/.test(telepon) || (pic_telepon && !/^[0-9+()\-\s]+$/.test(pic_telepon))) {
+    return res.status(400).json({ error: 'Format nomor telepon tidak valid' });
+  }
   await db.transaction(async (connection) => {
     await db.run('UPDATE mitra SET nama_showroom=?, alamat=?, telepon=?, pic_nama=?, pic_telepon=? WHERE id=?', [nama_showroom, alamat || null, telepon, pic_nama, pic_telepon || telepon, req.user.mitra_id], connection);
     await db.run('UPDATE users SET nama=?, telepon=? WHERE id=?', [pic_nama, pic_telepon || telepon, req.user.id], connection);
+    await writeAudit('mitra', req.user.mitra_id, 'profile_update', req.user, {
+      fields: ['nama_showroom', 'alamat', 'telepon', 'pic_nama', 'pic_telepon']
+    }, connection);
   });
   res.json({ message: 'Profil mitra berhasil diperbarui' });
 });
@@ -538,6 +602,7 @@ router.put('/me/password', auth(['mitra']), async (req, res) => {
   const user = await db.get('SELECT password FROM users WHERE id=?', [req.user.id]);
   if (!user || !bcrypt.compareSync(password_lama, user.password)) return res.status(400).json({ error: 'Password lama salah' });
   await db.run('UPDATE users SET password=? WHERE id=?', [bcrypt.hashSync(password_baru, 10), req.user.id]);
+  await writeAudit('user', req.user.id, 'password_change', req.user, { method: 'self_mitra' });
   res.json({ message: 'Password berhasil diperbarui' });
 });
 

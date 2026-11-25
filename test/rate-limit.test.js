@@ -73,3 +73,29 @@ test('memory store mengembalikan hitungan inkremental', async () => {
   assert.deepEqual(await store.increment('k', 60), { count: 1, retryAfter: 60 });
   assert.equal((await store.increment('k', 60)).count, 2);
 });
+
+test('Upstash store hanya menetapkan TTL saat counter dibuat', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, headers: options.headers, body: JSON.parse(options.body) });
+    return { ok: true, json: async () => [{ result: 1 }] };
+  };
+  const store = rateLimit.createUpstashStore(
+    { url: 'https://upstash.test/', token: 'test-token' },
+    fetchImpl
+  );
+
+  await store.increment('ratelimit:login:1.2.3.4', 900);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://upstash.test/pipeline');
+  assert.equal(calls[0].headers.Authorization, 'Bearer test-token');
+  assert.equal(calls[0].body.length, 1);
+  const [command, script, numKeys, keyArg, windowArg] = calls[0].body[0];
+  assert.equal(command, 'EVAL');
+  assert.match(script, /redis\.call\('INCR',KEYS\[1\]\)/);
+  assert.match(script, /c==1.*redis\.call\('EXPIRE',KEYS\[1\],ARGV\[1\]\)/);
+  assert.equal(numKeys, 1);
+  assert.equal(keyArg, 'ratelimit:login:1.2.3.4');
+  assert.equal(windowArg, 900);
+});

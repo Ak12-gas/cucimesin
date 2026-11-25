@@ -345,7 +345,7 @@
         </div>
         <div class="payment-row">
           <div class="ic">🏦</div>
-          <div><b>Pembayaran Transfer</b>BCA 1234567890 (CuciMesin Tuban)</div>
+          <div><b>Pembayaran Transfer</b><span id="paymentAccountInfo">Rekening ditampilkan saat ada invoice yang perlu dibayar.</span></div>
         </div>
         <button id="confirmPaymentBtn" class="btn btn-red" style="width:100%;" onclick="payLatestInvoice()">Konfirmasi Pembayaran</button>
       </div>
@@ -511,8 +511,8 @@ async function requestPasswordReset(){
     if (!response.ok) throw new Error(data.error || 'Gagal mengirim kode reset');
     if (data.dev_token) {
       document.getElementById('resetToken').value = data.dev_token;
-      setAuthMessage('forgotMessage', `${data.message} Kode pengujian: ${data.dev_token}`);
-      setAuthMessage('resetMessage', `Kode pengujian: ${data.dev_token}`);
+      setAuthMessage('forgotMessage', `${data.message} Kode pengujian terisi otomatis (mode pengembangan).`);
+      setAuthMessage('resetMessage', 'Kode pengujian terisi otomatis. Lanjutkan reset kata sandi.');
     } else {
       setAuthMessage('forgotMessage', data.message);
       setAuthMessage('resetMessage', data.message);
@@ -616,30 +616,7 @@ function formatCurrency(value){
   return `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 }
 
-async function loadInvoices(token){
-  const response = await fetch('/api/mitra/me/invoices', { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error('Gagal memuat invoice mitra');
-  const invoices = await response.json();
-  const rows = document.getElementById('invoiceRows');
-  const unpaid = invoices.filter(invoice => invoice.status !== 'Lunas');
-  const paid = invoices.filter(invoice => invoice.status === 'Lunas');
-  const unpaidTotal = document.getElementById('unpaidTotal');
-  const unpaidDue = document.getElementById('unpaidDue');
-  const paidTotal = document.getElementById('paidTotal');
-  const invoicedUnits = document.getElementById('invoicedUnits');
-  if (unpaidTotal) unpaidTotal.textContent = formatCurrency(unpaid.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0));
-  if (unpaidDue) unpaidDue.textContent = unpaid[0]?.jatuh_tempo ? `Jatuh tempo: ${unpaid[0].jatuh_tempo}` : 'Tidak ada tagihan jatuh tempo.';
-  if (paidTotal) paidTotal.textContent = formatCurrency(paid.reduce((sum, invoice) => sum + Number(invoice.total || 0), 0));
-  if (invoicedUnits) invoicedUnits.textContent = `${invoices.reduce((sum, invoice) => sum + Number(invoice.total_unit || 0), 0)} Kendaraan`;
-  window.mitraInvoices = invoices;
-  if (rows) rows.innerHTML = invoices.length ? invoices.map(invoice => `
-    <tr><td><b>${escapeHtml(invoice.no_invoice)}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(invoice.periode_mulai || '-')} - ${escapeHtml(invoice.periode_selesai || '-')}</span></td>
-    <td>${Number(invoice.total_unit || 0)} Unit</td><td>${formatCurrency(invoice.total)}</td>
-    <td><span class="tag ${invoice.status === 'Lunas' ? 'green' : ''}" style="${invoice.status === 'Lunas' ? '' : 'background:#fdecec;color:var(--red);'}">${escapeHtml(invoice.status)}</span></td>
-    <td><button class="btn btn-outline" type="button" onclick="downloadInvoice(${Number(invoice.id)})">Download PDF</button>
-    ${invoice.status === 'Lunas' ? '<span class="tag green">Terverifikasi</span>' : `<button class="btn btn-red" type="button" onclick="payInvoice(${Number(invoice.id)})">Bayar Sekarang</button>`}</td></tr>
-  `).join('') : '<tr><td colspan="5">Belum ada invoice.</td></tr>';
-}
+
 
 async function downloadInvoice(invoiceId){
   const errorEl = document.getElementById('invoiceLoadError');
@@ -772,22 +749,7 @@ async function submitFleetBooking(){
   } catch (error) { if (message) message.textContent = error.message || 'Booking armada gagal'; }
 }
 
-async function payInvoice(invoiceId){
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return;
-  if (!confirm('Konfirmasi bahwa invoice ini sudah dibayar melalui transfer?')) return;
-  const response = await fetch(`/api/mitra/me/invoices/${invoiceId}/pay`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-  const data = await response.json();
-  if (!response.ok) return alert(data.error || 'Pembayaran gagal');
-  alert('Pembayaran invoice berhasil dikonfirmasi.');
-  await loadInvoices(token);
-}
 
-function payLatestInvoice(){
-  const invoice = (window.mitraInvoices || []).find(item => item.status !== 'Lunas');
-  if (!invoice) return alert('Tidak ada invoice yang belum dibayar.');
-  payInvoice(invoice.id);
-}
 
 async function saveMitraProfile(){
   const token = localStorage.getItem(TOKEN_KEY);
@@ -909,21 +871,58 @@ async function login(){
   }
 }
 
-async function loadDashboardData(token){
-  try {
-    const response = await fetch('/api/mitra/me/dashboard', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      throw new Error('Gagal memuat dashboard mitra');
+async function loadPaymentAccount(token, { force = false } = {}){
+  const el = document.getElementById('paymentAccountInfo');
+  if(!el) return false;
+  const authToken = token || localStorage.getItem(TOKEN_KEY);
+  if(!authToken) return false;
+  if(!force && el.dataset.loaded === '1') return true;
+  el.textContent = 'Memuat rekening...';
+  try{
+    const response = await fetch('/api/pembayaran/rekening', { headers: { Authorization: `Bearer ${authToken}` } });
+    if(response.status === 401) return logout();
+    if(response.status === 403){
+      el.textContent = 'Rekening tersedia saat ada invoice yang perlu dibayar. Klik tombol bayar untuk memuat rekening.';
+      el.dataset.loaded = '';
+      return false;
     }
-
     const data = await response.json();
+    if(!response.ok) throw new Error(data.error || 'Gagal memuat rekening pembayaran');
+    const bank = String(data.bank || '').trim();
+    const nomor = String(data.nomor || '').trim();
+    const pemilik = String(data.pemilik || '').trim();
+    el.textContent = bank && nomor && pemilik ? `${bank} ${nomor} (${pemilik})` : 'Rekening belum diatur admin.';
+    el.dataset.loaded = '1';
+    return true;
+  } catch(error){
+    el.textContent = 'Gagal memuat rekening pembayaran.';
+    el.dataset.loaded = '';
+    return false;
+  }
+}
+
+function clearMitraPaymentAccount(message = 'Rekening ditampilkan setelah Anda menekan tombol bayar.'){
+  const el = document.getElementById('paymentAccountInfo');
+  if(!el) return;
+  el.textContent = message;
+  el.dataset.loaded = '';
+}
+
+async function loadDashboardData(token){
+  const authToken = token || localStorage.getItem(TOKEN_KEY);
+  if(!authToken) return;
+  const errorEl = document.getElementById('portalError');
+  try {
+    const response = await fetch('/api/mitra/me/dashboard', { headers: { Authorization: `Bearer ${authToken}` } });
+    if(response.status === 401 || response.status === 403) return logout();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memuat dashboard mitra');
     populateDashboard(data);
-    await Promise.all([loadInvoices(token), loadFleetData(token)]);
+    await Promise.all([loadInvoices(authToken), loadFleetData(authToken), loadProfile()]);
+    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
   } catch (error) {
     console.error(error);
+    if (errorEl) { errorEl.textContent = error.message || 'Gagal memuat data portal mitra.'; errorEl.style.display = 'block'; }
   }
 }
 
@@ -967,6 +966,11 @@ async function loadInvoices(token){
   document.getElementById('latestInvoiceTotal').textContent = formatCurrency(latest?.total);
   const paymentButton = document.getElementById('confirmPaymentBtn');
   if (paymentButton) paymentButton.disabled = !actionableInvoices.length;
+  clearMitraPaymentAccount(unpaid.length
+    ? (actionableInvoices.length
+      ? 'Rekening ditampilkan setelah Anda menekan tombol bayar.'
+      : 'Menunggu verifikasi admin. Pembayaran sudah dilaporkan.')
+    : 'Tidak ada invoice yang perlu dibayar.');
   window.mitraInvoices = invoices;
   const rows = document.getElementById('invoiceRows');
   if (rows) rows.innerHTML = invoices.length ? invoices.map(invoice => `
@@ -979,8 +983,13 @@ async function loadInvoices(token){
 }
 
 async function payInvoice(invoiceId){
-  if (!localStorage.getItem(TOKEN_KEY)) return;
-  if (!confirm('Konfirmasi bahwa Anda sudah melakukan transfer untuk invoice ini? Status Lunas akan diberikan setelah admin memverifikasi.')) return;
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+  const hasAccount = await loadPaymentAccount(token, { force: true });
+  if (!hasAccount) return alert('Rekening pembayaran belum tersedia atau Anda belum memiliki invoice yang perlu dibayar. Klik tombol bayar saat invoice eligible.');
+  const rekeningText = document.getElementById('paymentAccountInfo')?.textContent?.trim() || 'Rekening tidak tersedia';
+  const confirmed = confirm(`Transfer ke: ${rekeningText}\n\nKonfirmasi bahwa Anda sudah melakukan transfer untuk invoice ini? Status Lunas akan diberikan setelah admin memverifikasi.`);
+  if (!confirmed) return;
   try {
     const response = await fetch(`/api/mitra/me/invoices/${encodeURIComponent(invoiceId)}/pay`, {
       method: 'POST',
@@ -991,7 +1000,8 @@ async function payInvoice(invoiceId){
     alert(data.payment_action === 'payment_verified'
       ? 'Invoice ini sudah lunas.'
       : 'Laporan pembayaran terkirim dan menunggu verifikasi admin.');
-    await loadInvoices(localStorage.getItem(TOKEN_KEY));
+    clearMitraPaymentAccount('Pembayaran sudah dilaporkan dan menunggu verifikasi admin.');
+    await loadInvoices(token);
   } catch (error) {
     alert(error.message || 'Laporan pembayaran gagal dikirim.');
   }
@@ -1110,20 +1120,7 @@ function updateBookingEstimate(){
   document.getElementById('estimateTotal').textContent = formatCurrency(Math.max(0, subtotal - discount));
 }
 
-async function loadDashboardData(token){
-  const errorEl = document.getElementById('portalError');
-  try {
-    const response = await fetch('/api/mitra/me/dashboard', { headers: mitraHeaders() });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Gagal memuat dashboard mitra');
-    populateDashboard(data);
-    await Promise.all([loadInvoices(token), loadFleetData(token), loadProfile()]);
-    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
-  } catch (error) {
-    console.error(error);
-    if (errorEl) { errorEl.textContent = error.message || 'Gagal memuat data portal mitra.'; errorEl.style.display = 'block'; }
-  }
-}
+/* loadDashboardData didefinisikan sekali di atas dan digunakan oleh login, init, dan aksi terkait dashboard. */
 
 async function saveMitraProfile(){
   try {

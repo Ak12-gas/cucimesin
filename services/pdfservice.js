@@ -101,15 +101,21 @@ async function resolveFotoDataUrl(pathname) {
   const mimeType = mimeTypes[path.extname(urlPath).toLowerCase()];
   if (!mimeType) return null;
 
-  const objectPath = /^https?:\/\//i.test(urlPath)
-    ? storage.toObjectPath(urlPath)
-    : urlPath.replace(/^\/uploads\//, '').replace(/^[\\/]+/, '');
+  let objectPath = null;
+  try {
+    const resolved = storage.toObjectPath('spk_photo', urlPath, { mode: 'compat' });
+    objectPath = typeof resolved === 'string' ? resolved : resolved?.objectPath || null;
+  } catch (_error) {
+    return null;
+  }
   if (!objectPath) return null;
 
   try {
-    const bytes = await storage.download(objectPath);
+    const downloadResult = await storage.download('spk_photo', objectPath);
+    const bytes = Buffer.isBuffer(downloadResult) ? downloadResult : downloadResult?.bytes;
+    if (!Buffer.isBuffer(bytes)) return null;
     return `data:${mimeType};base64,${bytes.toString('base64')}`;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

@@ -36,16 +36,19 @@ function upstashConfig() {
   return url && token ? { url: url.replace(/\/$/, ''), token } : null;
 }
 
+const UPSTASH_INCREMENT_SCRIPT = "local c=redis.call('INCR',KEYS[1]) if c==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end return c";
+
 function createUpstashStore(config, fetchImpl = fetch) {
+  const url = config.url.replace(/\/$/, '');
   return {
     async increment(key, windowSeconds) {
-      const response = await fetchImpl(`${config.url}/pipeline`, {
+      const response = await fetchImpl(`${url}/pipeline`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${config.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify([['INCR', key], ['EXPIRE', key, windowSeconds]])
+        body: JSON.stringify([['EVAL', UPSTASH_INCREMENT_SCRIPT, 1, key, windowSeconds]])
       });
       if (!response.ok) throw new Error(`Upstash rate limit gagal: ${response.status}`);
       const result = await response.json();
@@ -107,3 +110,4 @@ module.exports = rateLimit;
 module.exports.rateLimit = rateLimit;
 module.exports.clientKey = clientKey;
 module.exports.createMemoryStore = createMemoryStore;
+module.exports.createUpstashStore = createUpstashStore;

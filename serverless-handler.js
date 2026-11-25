@@ -1,4 +1,5 @@
 const path = require('path');
+const { validateStagingConfig } = require('./utils/staging-config');
 
 function writableUploadDir(configuredPath, fallbackPath) {
   if (configuredPath && configuredPath.startsWith('/tmp/')) return configuredPath;
@@ -8,6 +9,8 @@ function writableUploadDir(configuredPath, fallbackPath) {
 
 process.env.UPLOAD_DIR = writableUploadDir(process.env.UPLOAD_DIR, 'uploads');
 process.env.PAYMENT_UPLOAD_DIR = writableUploadDir(process.env.PAYMENT_UPLOAD_DIR, 'payment-proofs');
+
+validateStagingConfig();
 
 const db = require('./db/database');
 

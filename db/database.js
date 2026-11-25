@@ -1,8 +1,9 @@
-require('dotenv').config();
+require('../utils/env').loadEnvIfAllowed();
 const fs = require('fs/promises');
 const path = require('path');
 const { Pool, types } = require('pg');
 const { APP_TIME_ZONE } = require('../utils/timezone');
+const { isStagingEnv } = require('../utils/staging-config');
 
 types.setTypeParser(1082, (value) => value);
 types.setTypeParser(1083, (value) => value);
@@ -13,14 +14,19 @@ types.setTypeParser(20, (value) => {
   return Number.isSafeInteger(parsed) ? parsed : value;
 });
 
-function createPool() {
-  const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
+function createPool(env = process.env) {
+  const staging = isStagingEnv(env);
+  const databaseUrl = typeof env.DATABASE_URL === 'string' ? env.DATABASE_URL.trim() : '';
+  const supabaseDatabaseUrl = typeof env.SUPABASE_DATABASE_URL === 'string' ? env.SUPABASE_DATABASE_URL.trim() : '';
+  const connectionString = staging ? databaseUrl : (databaseUrl || supabaseDatabaseUrl);
   if (!connectionString) {
-    throw new Error('DATABASE_URL belum diatur. Isi connection string Supabase di environment.');
+    throw new Error(staging
+      ? 'DATABASE_URL wajib diatur saat APP_ENV=staging.'
+      : 'DATABASE_URL belum diatur. Isi connection string Supabase di environment.');
   }
   return new Pool({
     connectionString,
-    max: Number(process.env.DB_CONNECTION_LIMIT || 5),
+    max: Number(env.DB_CONNECTION_LIMIT || 5),
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
     // Startup parameter, jadi tidak ada race dengan query pertama.

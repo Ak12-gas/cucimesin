@@ -1,10 +1,15 @@
 const express = require('express');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
+const { writeAudit } = require('../utils/audit');
 const router = express.Router();
 
 router.get('/', auth(['admin']), async (req, res) => {
-  res.json(await db.all('SELECT * FROM pelanggan ORDER BY id DESC'));
+  res.json(await db.all(`
+    SELECT p.id, p.user_id, p.nama, p.telepon, p.email, p.alamat, p.kategori, p.created_at
+    FROM pelanggan p
+    ORDER BY p.id DESC
+  `));
 });
 
 router.post('/', auth(['admin']), async (req, res) => {
@@ -17,11 +22,14 @@ router.post('/', auth(['admin']), async (req, res) => {
   if (!nama || !telepon) {
     return res.status(400).json({ error: 'Nama dan nomor WhatsApp wajib diisi' });
   }
-  if (nama.length > 150 || telepon.length > 40 || (email && email.length > 191)) {
+  if (nama.length > 150 || telepon.length > 40 || (email && email.length > 191) || (alamat && alamat.length > 500)) {
     return res.status(400).json({ error: 'Data pelanggan melebihi batas panjang yang diizinkan' });
   }
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Format email tidak valid' });
+  }
+  if (!/^[0-9+()\-\s]+$/.test(telepon)) {
+    return res.status(400).json({ error: 'Format nomor WhatsApp tidak valid' });
   }
 
   const existing = await db.get('SELECT id FROM pelanggan WHERE telepon=? LIMIT 1', [telepon]);
@@ -32,7 +40,11 @@ router.post('/', auth(['admin']), async (req, res) => {
     'INSERT INTO pelanggan (user_id, nama, telepon, email, alamat, kategori) VALUES (?, ?, ?, ?, ?, ?)',
     [user?.id || null, nama, telepon, email, alamat, kategori]
   );
-  const pelanggan = await db.get('SELECT * FROM pelanggan WHERE id=?', [result.insertId]);
+  const pelanggan = await db.get(
+    'SELECT id, user_id, nama, telepon, email, alamat, kategori, created_at FROM pelanggan WHERE id=?',
+    [result.insertId]
+  );
+  await writeAudit('pelanggan', result.insertId, 'create', req.user, { id: result.insertId });
   res.status(201).json(pelanggan);
 });
 
@@ -68,15 +80,28 @@ router.put('/me/profile', auth(['pelanggan']), async (req, res) => {
   const alamat = String(req.body.alamat || '').trim() || null;
 
   if (!nama || !telepon) return res.status(400).json({ error: 'Nama dan nomor WhatsApp wajib diisi' });
+  if (nama.length > 150 || telepon.length > 40 || (email && email.length > 191) || (alamat && alamat.length > 500)) {
+    return res.status(400).json({ error: 'Data pelanggan melebihi batas panjang yang diizinkan' });
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Format email tidak valid' });
+  }
+  if (!/^[0-9+()\-\s]+$/.test(telepon)) {
+    return res.status(400).json({ error: 'Format nomor WhatsApp tidak valid' });
+  }
 
   try {
     const profile = await db.transaction(async (connection) => {
       await db.run('UPDATE users SET nama=?, telepon=?, email=? WHERE id=?', [nama, telepon, email, req.user.id], connection);
       await db.run('UPDATE pelanggan SET nama=?, telepon=?, email=?, alamat=? WHERE user_id=?', [nama, telepon, email, alamat, req.user.id], connection);
-      return db.get(`
+      const updated = await db.get(`
         SELECT u.id, u.nama, u.email, u.telepon, p.alamat, p.kategori
         FROM users u LEFT JOIN pelanggan p ON p.user_id=u.id WHERE u.id=?
       `, [req.user.id], connection);
+      await writeAudit('user', req.user.id, 'profile_update', req.user, {
+        fields: ['nama', 'telepon', 'email', 'alamat']
+      }, connection);
+      return updated;
     });
     res.json(profile);
   } catch (error) {

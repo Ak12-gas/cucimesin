@@ -3,6 +3,7 @@ const db = require('../db/database');
 const auth = require('../middleware/auth');
 const { toLocalDateString } = require('../utils/helper');
 const { isValidAppDate } = require('../utils/timezone');
+const { writeAudit } = require('../utils/audit');
 const router = express.Router();
 
 router.use((_req, res, next) => {
@@ -80,7 +81,7 @@ router.get('/transaksi', async (req, res) => {
   if (period.error) return res.status(400).json({ error: period.error });
 
   res.json(await db.all(
-    'SELECT * FROM transaksi WHERE tanggal BETWEEN ? AND ? ORDER BY tanggal DESC, id DESC LIMIT 100',
+    'SELECT id, tipe, kategori, deskripsi, nominal, tanggal, spk_id, created_at FROM transaksi WHERE tanggal BETWEEN ? AND ? ORDER BY tanggal DESC, id DESC LIMIT 100',
     [period.dari, period.sampai]
   ));
 });
@@ -102,7 +103,11 @@ router.post('/transaksi', async (req, res) => {
     "INSERT INTO transaksi (tipe, kategori, deskripsi, nominal, tanggal) VALUES ('keluar', ?, ?, ?, ?)",
     [kategori, deskripsi, nominal, tanggal]
   );
-  const transaction = await db.get('SELECT * FROM transaksi WHERE id=?', [result.insertId]);
+  const transaction = await db.get(
+    'SELECT id, tipe, kategori, deskripsi, nominal, tanggal, spk_id, created_at FROM transaksi WHERE id=?',
+    [result.insertId]
+  );
+  await writeAudit('transaksi', result.insertId, 'create', req.user, { id: result.insertId, tipe: 'keluar', nominal });
   res.status(201).json(transaction);
 });
 

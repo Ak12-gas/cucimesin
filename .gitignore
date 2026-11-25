@@ -1,5 +1,16 @@
 node_modules/
+
+# Environment files (never commit secrets)
 .env
+.env.*
+.env*.local
+!.env.example
+!.env.sample
+!.env.template
+
+# Riwayat sesi bisa memuat kredensial
+session-*.md
+
 data/
 *.db
 *.db-shm

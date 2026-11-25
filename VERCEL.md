@@ -49,19 +49,46 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
    Production:
 
    ```text
+   # Wajib / wajib produksi
    DATABASE_URL=<Supabase Transaction pooler connection string>
-   DB_CONNECTION_LIMIT=1
-   APP_TIME_ZONE=Asia/Jakarta
    JWT_SECRET=<secret acak minimal 32 byte>
-   RESET_WEBHOOK_URL=<opsional, pengirim kode reset password>
-   RESET_WEBHOOK_TOKEN=<opsional>
+
+   # Wajib fungsional produksi
+   RESET_WEBHOOK_URL=<endpoint pengirim email/WhatsApp/SMS kode reset>
+
+   # Wajib untuk penyimpanan file persisten di Vercel (bucket privat)
    SUPABASE_URL=https://<project>.supabase.co
    SUPABASE_SERVICE_ROLE_KEY=<service role key Supabase>
-   SUPABASE_STORAGE_BUCKET=cucimesin
+   SUPABASE_STORAGE_BUCKET_SPK=cucimesin-spk
+   SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS=cucimesin-payment-proofs
+   # SUPABASE_STORAGE_BUCKET=cucimesin  # Opsional legacy/compat; bukan pengganti bucket privat baru
+
+   # Sangat direkomendasikan untuk Vercel/serverless
+   UPSTASH_REDIS_REST_URL=<Upstash Redis REST URL>
+   UPSTASH_REDIS_REST_TOKEN=<Upstash Redis REST token>
    TRUST_PROXY=1
-   UPSTASH_REDIS_REST_URL=<opsional, untuk rate limit bersama>
-   UPSTASH_REDIS_REST_TOKEN=<opsional>
+   DB_CONNECTION_LIMIT=1
+
+   # Opsional
+   APP_TIME_ZONE=Asia/Jakarta
+   JWT_EXPIRES=7d
+   CORS_ORIGINS=<isi hanya jika frontend beda origin>
+   RESET_WEBHOOK_TOKEN=<opsional, bearer token webhook>
+   NODE_ENV=production
+   # APP_ENV=staging hanya untuk environment staging terisolasi (fail-closed)
    ```
+
+   Catatan klasifikasi:
+   - **Wajib**: `DATABASE_URL`.
+   - **Wajib produksi**: `JWT_SECRET` (app gagal start di production jika kosong).
+   - **Wajib fungsional produksi**: `RESET_WEBHOOK_URL`; tanpa ini token reset tidak dikirim ke user dan `dev_token` tidak dikembalikan di production.
+   - **Wajib untuk file persisten di Vercel**: `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_STORAGE_BUCKET_SPK` + `SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS`. Kedua bucket bersifat **private**. Foto SPK diakses lewat **backend proxy** berautorisasi; signed URL hanya fallback foto SPK dengan TTL **60 detik** (on-demand, tidak dipersist). Bukti pembayaran **tidak** menggunakan signed URL. Tanpa config remote, fallback lokal `/tmp` bersifat ephemeral.
+   - **Wajib saat `APP_ENV=staging`**: `APP_ENV=staging`, `DATABASE_URL` eksplisit (tanpa fallback `SUPABASE_DATABASE_URL`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET_SPK`, `SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS`. Validasi staging fail-closed dan hanya menyebut nama variabel yang hilang.
+   - **Legacy/compat (opsional)**: `SUPABASE_STORAGE_BUCKET` (jangan pengganti bucket privat baru).
+   - **Direkomendasikan serverless**: `UPSTASH_REDIS_REST_URL/TOKEN`, `TRUST_PROXY=1`, `DB_CONNECTION_LIMIT=1`.
+   - **Opsional**: `JWT_EXPIRES`, `APP_TIME_ZONE`, `CORS_ORIGINS`, `RESET_WEBHOOK_TOKEN`, `NODE_ENV`, `SUPABASE_DATABASE_URL` (alias `DATABASE_URL` hanya mode non-staging).
+   - **Khusus migrasi lokal, jangan di Vercel**: `SOURCE_DB_*` atau alias `DB_HOST/PORT/NAME/USER/PASSWORD`.
+   - **Khusus Docker/container, bukan Vercel**: `PUPPETEER_EXECUTABLE_PATH`, `PUPPETEER_SKIP_DOWNLOAD`, `UPLOAD_DIR`, `PAYMENT_UPLOAD_DIR` (Vercel meremap ke `/tmp`).
 
    Buat `JWT_SECRET` dengan:
 
@@ -69,14 +96,18 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
    node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
    ```
 
-   Jangan masukkan `SOURCE_DB_*` ke Vercel; variabel itu hanya untuk migrasi
-   lokal. Jangan mengisi `PORT`; Vercel mengaturnya. `CORS_ORIGINS` tidak
-   diperlukan jika frontend dan API memakai domain yang sama. `TRUST_PROXY=1`
-   membuat `req.ip` mengikuti `X-Forwarded-For` Vercel; tanpa itu semua user
-   bisa dianggap berasal dari IP proxy yang sama oleh rate limiter. Buat bucket
-   `SUPABASE_STORAGE_BUCKET` dengan akses public untuk foto SPK; bukti pembayaran
-   tetap lewat endpoint API yang diautentikasi. Tanpa `UPSTASH_*`, rate limit
-   hanya berlaku per instance function.
+   Panduan penting:
+   - `JWT_SECRET` wajib di production.
+   - `RESET_WEBHOOK_URL` diperlukan agar reset password produksi dapat dikirim.
+   - Supabase Storage wajib untuk penyimpanan file persisten di Vercel.
+   - Untuk staging terisolasi, gunakan `APP_ENV=staging` dan isi semua env staging wajib secara eksplisit; `SUPABASE_DATABASE_URL` tidak dipakai sebagai fallback `DATABASE_URL` saat staging.
+   - Simpan secret hanya di environment platform/server; jangan commit ke Git dan jangan ekspos ke frontend.
+   - Upstash direkomendasikan untuk serverless agar rate limit berlaku lintas instance.
+   - `TRUST_PROXY=true` tidak diperbolehkan; gunakan hop count seperti `TRUST_PROXY=1`.
+   - `PORT` disediakan oleh platform deployment; jangan diset di Vercel.
+   - `CORS_ORIGINS` tidak diperlukan jika frontend dan API memakai domain yang sama.
+   - `SUPABASE_DATABASE_URL` dapat dipakai sebagai alias `DATABASE_URL` pada mode non-staging, tetapi dokumentasi utama memakai `DATABASE_URL`.
+   - Jangan masukkan `SOURCE_DB_*`/`DB_*` sumber migrasi ke Vercel.
 4. Deploy. API memastikan skema tersedia saat mulai, sehingga database user
    harus diizinkan membuat tabel dan index. Setelah deploy, buka
    `https://<domain>/api`; respons yang diharapkan memuat `"status":"ok"`.
@@ -84,11 +115,16 @@ data di Supabase dan alur aplikasi berhasil diverifikasi. File SQLite lama di
 ## Batasan dan verifikasi
 
 - Database dipindahkan, tetapi file foto SPK dan bukti pembayaran lama tidak ikut
-  disalin oleh migrasi database. Upload baru disimpan ke Supabase Storage jika
-  `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` diisi; tanpa keduanya backend
-  jatuh ke `/tmp` yang ephemeral dan tidak dibagikan antar-instance. Untuk
-  menyalin file lama ke Supabase Storage tanpa mengubah path di database, jalankan
-  `npm run migrate:uploads` (dry-run) lalu `npm run migrate:uploads -- --apply`.
+  disalin oleh migrasi database. Upload baru disimpan ke Supabase Storage privat jika
+  `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET_SPK`, dan
+  `SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS` diisi; tanpa config remote yang lengkap, backend
+  jatuh ke `/tmp` yang ephemeral dan tidak dibagikan antar-instance. Foto SPK dilayani lewat
+  backend proxy berautorisasi; signed URL hanya fallback foto SPK TTL 60 detik (on-demand,
+  tidak dipersist). Bukti pembayaran tidak menggunakan signed URL. Untuk menyalin file lama ke
+  Supabase Storage tanpa mengubah path di database, jalankan `npm run migrate:uploads`
+  (default dry-run; tidak mutasi DB, tidak overwrite konflik checksum, tidak menghapus file
+  sumber otomatis) lalu `npm run migrate:uploads -- --apply` hanya setelah mapping/persetujuan
+  eksplisit.
 - Batas request/response Vercel adalah 4.5 MB, lebih kecil dari batas aplikasi
   5 MB. Saat `VERCEL` diset, batas multer diturunkan menjadi 4 MB agar file yang
   terlalu besar ditolak oleh API dengan respons JSON, bukan oleh platform.

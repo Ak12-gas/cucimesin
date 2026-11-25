@@ -26,3 +26,15 @@
 - Customer ownership is strictly `pelanggan.user_id = users.id`; phone-number fallback was removed. `db.initialize()` backfills unambiguous `pelanggan.user_id` and `booking.user_id`; ambiguous legacy duplicates are skipped, not guessed.
 - Vercel rewrites `/api/*` to `api/index.js?__route=...`, which restores `req.url` for Express; `serverless-handler.js` lazily initializes DB/app. When adding serverless assets, update `functions.api/**.includeFiles` in `vercel.json`; function timeout is 60s.
 - Docker/Railway: mount a volume at `/data`, do not set `PORT`, and keep a single replica while uploads remain on the local volume.
+
+## Environment documentation
+- Canonical env template: `.env.example`. Deployment docs: `VERCEL.md`, `DEPLOYMENT.md`, `docs/STAGING-ENV-CHECKLIST.md`, `docs/STORAGE-STAGING-RUNBOOK.md`.
+- **Wajib**: `DATABASE_URL`.
+- **Wajib saat `APP_ENV=staging` (fail-closed)**: `APP_ENV=staging`, `DATABASE_URL` eksplisit, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET_SPK`, `SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS`, `JWT_SECRET`. Saat staging, `SUPABASE_DATABASE_URL` **bukan** fallback `DATABASE_URL`; nilai yang hilang membuat startup gagal dengan pesan aman (nama variabel saja). `utils/env.js` melewati pemuatan `.env` default saat `APP_ENV=staging` atau `SKIP_DOTENV=1|true`.
+- **Wajib produksi**: `JWT_SECRET`; `NODE_ENV=production` pada deployment produksi.
+- **Wajib fungsional produksi**: `RESET_WEBHOOK_URL` agar reset password dapat dikirim (`RESET_WEBHOOK_TOKEN` opsional).
+- **Wajib untuk file persisten Vercel / direkomendasikan produksi**: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET_SPK`, `SUPABASE_STORAGE_BUCKET_PAYMENT_PROOFS`. Kedua bucket Storage bersifat **private**. Foto SPK diakses lewat **backend proxy** berautorisasi; signed URL hanya fallback foto SPK dengan TTL **60 detik** (on-demand, tidak dipersist). Bukti pembayaran **tidak** menggunakan signed URL dan hanya lewat backend berautorisasi.
+- **Legacy/compat (opsional, bukan pengganti bucket privat baru)**: `SUPABASE_STORAGE_BUCKET`.
+- **Direkomendasikan serverless/multi-instance**: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+- **Opsional/platform**: `PORT` (jangan set di Vercel/Railway), `APP_TIME_ZONE`, `DB_CONNECTION_LIMIT`, `JWT_EXPIRES`, `CORS_ORIGINS`, `TRUST_PROXY` (jangan `true`), `UPLOAD_DIR`, `PAYMENT_UPLOAD_DIR`, `PUPPETEER_EXECUTABLE_PATH`, `PUPPETEER_SKIP_DOWNLOAD`, `SUPABASE_DATABASE_URL` (alias `DATABASE_URL` hanya mode non-staging).
+- **Khusus migrasi lokal**: `SOURCE_DB_*` atau alias `DB_HOST/PORT/NAME/USER/PASSWORD`; jangan isi di runtime produksi. `npm run migrate:uploads` default **dry-run**, tidak mutasi DB, tidak overwrite konflik checksum, dan **tidak menghapus file sumber otomatis**; `--apply` hanya setelah mapping/persetujuan eksplisit.

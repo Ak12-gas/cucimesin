@@ -93,9 +93,9 @@ test('transaksi baru memakai tanggal WIB hari ini sebagai default', async () => 
   });
 
   assert.equal(result.status, 201);
-  const last = inserts.at(-1);
-  assert.match(last.sql, /INSERT INTO transaksi/);
-  assert.equal(last.params[3], toAppDate());
+  const transaksiInsert = [...inserts].reverse().find((entry) => /INSERT INTO transaksi/.test(entry.sql));
+  assert.ok(transaksiInsert, 'INSERT INTO transaksi tidak ditemukan');
+  assert.equal(transaksiInsert.params[3], toAppDate());
 });
 
 test('transaksi dengan tanggal masa depan ditolak', async () => {

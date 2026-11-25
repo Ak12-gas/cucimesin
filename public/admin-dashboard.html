@@ -1087,6 +1087,114 @@ function authHeaders(extra = {}){
     : extra;
 }
 
+// ---- Private SPK photo (Blob + Authorization) ----
+const spkPhotoBlobUrls = new Map();
+const spkPhotoControllers = new Map();
+
+function revokeSpkPhotoBlobUrl(key) {
+  const url = spkPhotoBlobUrls.get(key);
+  if (url) {
+    try { URL.revokeObjectURL(url); } catch (_e) {}
+    spkPhotoBlobUrls.delete(key);
+  }
+}
+
+function clearSpkPhotoBlobsForContainer(container) {
+  if (!container) return;
+  container.querySelectorAll('img[data-spk-photo-key]').forEach((img) => {
+    const key = img.dataset.spkPhotoKey;
+    if (key) {
+      revokeSpkPhotoBlobUrl(key);
+      spkPhotoControllers.delete(key);
+      delete img.dataset.spkPhotoKey;
+    }
+    img.removeAttribute('src');
+  });
+}
+
+function spkPhotoKey(spkId, fotoId) { return `spk:${spkId}:foto:${fotoId}`; }
+
+async function fetchSpkPhotoBlobUrl(spkId, fotoId, token) {
+  const key = spkPhotoKey(spkId, fotoId);
+  const prevController = spkPhotoControllers.get(key);
+  if (prevController) try { prevController.abort(); } catch (_e) {}
+  const controller = new AbortController();
+  spkPhotoControllers.set(key, controller);
+
+  const response = await fetch(`/api/spk/${encodeURIComponent(spkId)}/foto/${encodeURIComponent(fotoId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: controller.signal
+  });
+
+  if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  if (response.status === 401) { const err = new Error('Sesi berakhir. Silakan login ulang.'); err.status = 401; throw err; }
+  if (response.status === 403) { const err = new Error('Akses foto ditolak.'); err.status = 403; throw err; }
+  if (response.status === 404) { const err = new Error('Foto tidak ditemukan.'); err.status = 404; throw err; }
+  if (response.status === 502) { const err = new Error('Layanan penyimpanan sedang bermasalah.'); err.status = 502; throw err; }
+  if (!response.ok) { const err = new Error('Gagal memuat foto.'); err.status = response.status; throw err; }
+
+  const blob = await response.blob();
+  if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  const contentType = (blob.type || response.headers.get('content-type') || '').toLowerCase();
+  if (contentType && !contentType.startsWith('image/')) {
+    const err = new Error('Format foto tidak didukung.'); err.status = 415; throw err;
+  }
+
+  revokeSpkPhotoBlobUrl(key);
+  const objectUrl = URL.createObjectURL(blob);
+  spkPhotoBlobUrls.set(key, objectUrl);
+  spkPhotoControllers.delete(key);
+  return { key, url: objectUrl, status: 200 };
+}
+
+function setSpkPhotoError(img, message) {
+  if (!img) return;
+  const slot = img.closest('.photo-slot');
+  img.removeAttribute('src');
+  img.style.display = 'none';
+  let msg = slot ? slot.querySelector('.spk-photo-error') : null;
+  if (!msg && slot) {
+    msg = document.createElement('div');
+    msg.className = 'spk-photo-error muted';
+    msg.style.fontSize = '11px';
+    msg.style.padding = '8px';
+    img.insertAdjacentElement('afterend', msg);
+  }
+  if (msg) msg.textContent = message;
+}
+
+async function hydrateSpkPhotos(container) {
+  if (!container) return;
+  const token = getAdminToken();
+  const imgs = Array.from(container.querySelectorAll('img[data-spk-id][data-foto-id]'));
+  await Promise.all(imgs.map(async (img) => {
+    const spkId = img.dataset.spkId;
+    const fotoId = img.dataset.fotoId;
+    const key = spkPhotoKey(spkId, fotoId);
+    img.dataset.spkPhotoKey = key;
+    const existing = spkPhotoBlobUrls.get(key);
+    if (existing) { img.src = existing; return; }
+    if (!token) { setSpkPhotoError(img, 'Sesi berakhir. Silakan login ulang.'); return; }
+    try {
+      const result = await fetchSpkPhotoBlobUrl(spkId, fotoId, token);
+      if (!img.isConnected || img.dataset.spkPhotoKey !== result.key) {
+        const stillUsed = container.querySelector(`img[data-spk-photo-key="${result.key}"]`);
+        if (!stillUsed) revokeSpkPhotoBlobUrl(result.key);
+        return;
+      }
+      img.src = result.url;
+      img.style.display = '';
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      if (error?.status === 401) { setSpkPhotoError(img, 'Sesi berakhir. Silakan login ulang.'); return; }
+      if (error?.status === 403) { setSpkPhotoError(img, 'Akses foto ditolak.'); return; }
+      if (error?.status === 404) { setSpkPhotoError(img, 'Foto tidak ditemukan.'); return; }
+      if (error?.status === 502) { setSpkPhotoError(img, 'Layanan penyimpanan bermasalah.'); return; }
+      setSpkPhotoError(img, 'Gagal memuat foto.');
+    }
+  }));
+}
+
 function escapeHtml(value){
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -1116,8 +1224,8 @@ function showPage(id, el, title, sub){
   document.getElementById('page-'+id).classList.add('active');
   document.querySelectorAll('.sb-nav button').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('pageTitle').innerHTML = title;
-  document.getElementById('pageSub').innerHTML = sub;
+  document.getElementById('pageTitle').textContent = title;
+  document.getElementById('pageSub').textContent = sub;
 }
 
 function searchDashboardSpk(){
@@ -1135,7 +1243,13 @@ function showSettingsTab(tab){
 }
 
 function openModal(id){ document.getElementById(id).classList.add('active'); }
-function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+function closeModal(id){
+  if (id === 'modalSpkDetail') {
+    const detailBody = document.getElementById('detailSpkBody');
+    clearSpkPhotoBlobsForContainer(detailBody);
+  }
+  document.getElementById(id).classList.remove('active');
+}
 
 function localDateValue(date){
   const year = date.getFullYear();
@@ -1803,14 +1917,14 @@ function renderTeknisiCards(rows){
       <div class="tek-card">
         <div class="tek-top">
           <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:16px;">
-            ${initials}
+            ${escapeHtml(initials)}
           </div>
           <div style="flex:1; display:flex; justify-content:space-between; align-items:flex-start; margin-left:12px;">
             <div>
               <div class="tek-name">${escapeHtml(row.nama || '-')}</div>
               <span class="${statusClass}" style="${statusStyle}">${row.aktif ? 'AKTIF' : 'NON-AKTIF'}</span>
             </div>
-            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editTeknisi('${row.id}', '${escapeHtml(row.nama || '')}', '${escapeHtml(row.email || '')}', '${escapeHtml(row.telepon || '')}', '${row.aktif}')">
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" data-teknisi-action="edit" data-teknisi-id="${escapeHtml(String(row.id))}">
               ✏️ Edit
             </button>
           </div>
@@ -1821,7 +1935,7 @@ function renderTeknisiCards(rows){
         <button class="btn btn-outline" style="width:100%; margin-top:8px;" onclick="openModal('modalSopTeknisi')">
           Lihat Detail SOP
         </button>
-        <button class="btn btn-outline" style="width:100%; margin-top:8px; color:var(--red); border-color:var(--red);" onclick="hapusTeknisi(${Number(row.id)})">
+        <button class="btn btn-outline" style="width:100%; margin-top:8px; color:var(--red); border-color:var(--red);" data-teknisi-action="delete" data-teknisi-id="${escapeHtml(String(row.id))}">
           Hapus Teknisi
         </button>
       </div>
@@ -2216,6 +2330,7 @@ async function openSpkDetail(spkId){
     }
 
     if (detailBody) {
+      clearSpkPhotoBlobsForContainer(detailBody);
       const fotoSebelum = (spk.foto || []).filter(item => item.tipe === 'sebelum');
       const fotoSesudah = (spk.foto || []).filter(item => item.tipe === 'sesudah');
 
@@ -2244,13 +2359,13 @@ async function openSpkDetail(spkId){
           <div class="photo-slots">
             <div class="photo-slot">
               ${fotoSebelum.length
-                ? `<img src="${escapeHtml(fotoSebelum[0].path)}" alt="Foto sebelum cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
+                ? `<img data-spk-id="${escapeHtml(spk.id)}" data-foto-id="${escapeHtml(fotoSebelum[0].id)}" data-foto-tipe="sebelum" alt="Foto sebelum cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
                 : '📷'}
               <span>${fotoSebelum.length ? 'Sebelum Cuci' : 'Belum ada foto sebelum'}</span>
             </div>
             <div class="photo-slot">
               ${fotoSesudah.length
-                ? `<img src="${escapeHtml(fotoSesudah[0].path)}" alt="Foto sesudah cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
+                ? `<img data-spk-id="${escapeHtml(spk.id)}" data-foto-id="${escapeHtml(fotoSesudah[0].id)}" data-foto-tipe="sesudah" alt="Foto sesudah cuci" style="width:100%;height:120px;object-fit:cover;border-radius:10px;" />`
                 : '📷'}
               <span>${fotoSesudah.length ? 'Setelah Selesai' : 'Belum ada foto sesudah'}</span>
             </div>
@@ -2262,6 +2377,7 @@ async function openSpkDetail(spkId){
           ${spk.laporan?.teknisi_nama ? `<div class="v2">Dikirim oleh ${escapeHtml(spk.laporan.teknisi_nama)} · ${escapeHtml(spk.laporan.updated_at || spk.laporan.created_at || '')}</div>` : ''}
         </div>
       `;
+      await hydrateSpkPhotos(detailBody);
     }
 
     if (downloadSpkBtn) {
@@ -2378,7 +2494,19 @@ async function loadTeknisiData() {
     
   } catch (error) {
     console.error('Error loadTeknisiData:', error);
-    container.innerHTML = `<div class="tek-card" style="justify-content:center; padding:20px; color:#b02a37; border-color:#f5c2c7; background:#f8d7da;"><b>Gagal memuat data:</b> <br>${error.message}</div>`;
+    const card = document.createElement('div');
+    card.className = 'tek-card';
+    card.style.cssText = 'justify-content:center; padding:20px; color:#b02a37; border-color:#f5c2c7; background:#f8d7da;';
+    const label = document.createElement('b');
+    label.textContent = 'Gagal memuat data:';
+    card.appendChild(label);
+    card.appendChild(document.createTextNode(' '));
+    card.appendChild(document.createElement('br'));
+    const message = document.createElement('span');
+    message.textContent = error?.message || '';
+    card.appendChild(message);
+    container.textContent = '';
+    container.appendChild(card);
   }
 }
 
@@ -2620,6 +2748,20 @@ document.getElementById('saveProfilBtn')?.addEventListener('click', saveProfilSe
 document.getElementById('createSpkBtn')?.addEventListener('click', createSpk);
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('teknisiCardsContainer')?.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button[data-teknisi-action]');
+    if (!button) return;
+    const id = Number(button.dataset.teknisiId);
+    if (!Number.isInteger(id) || id < 1) return;
+    if (button.dataset.teknisiAction === 'delete') {
+      hapusTeknisi(id);
+      return;
+    }
+    if (button.dataset.teknisiAction !== 'edit') return;
+    const row = teknisiRows.find((item) => Number(item.id) === id);
+    if (!row) return;
+    editTeknisi(id, row.nama, row.email, row.telepon, row.aktif);
+  });
   restoreAdminSession();
   window.setInterval(refreshLiveSpkTables, 30000);
   document.addEventListener('visibilitychange', () => {

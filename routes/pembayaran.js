@@ -5,23 +5,37 @@ const db = require('../db/database');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const storage = require('../services/storage');
+const { writeAudit } = require('../utils/audit');
 const router = express.Router();
 
 const proofUpload = upload.single('bukti');
 
-function proofObjectPath(value) {
+function proofObjectPath(value, { mode = 'compat' } = {}) {
   if (!value) return null;
-  const raw = String(value);
-  // Bukti lama disimpan sebagai nama file polos di PAYMENT_UPLOAD_DIR.
-  if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/') && !raw.includes('/')) {
-    return `payment-proofs/${path.basename(raw)}`;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Legacy compat: bukti lama bisa berupa nama file polos atau path lama.
+  const looksLikeUrl = /^https?:\/\//i.test(raw);
+  const hasSlash = raw.includes('/') || raw.includes('\\');
+  const hasDot = raw.includes('.');
+  let candidate = raw;
+
+  if (!looksLikeUrl && !hasSlash && hasDot) {
+    candidate = `payment-proofs/${path.basename(raw)}`;
+  } else if (!looksLikeUrl && /^\/?uploads\//i.test(raw)) {
+    candidate = raw.replace(/^\/?uploads\//i, '');
   }
-  return storage.toObjectPath(raw);
+
+  const resolved = storage.toObjectPath('payment_proof', candidate, { mode });
+  if (typeof resolved === 'string') return resolved;
+  return resolved?.objectPath || null;
 }
 
 function httpError(status, message) {
   const error = new Error(message);
   error.status = status;
+  error.expose = true;
   return error;
 }
 
@@ -32,10 +46,10 @@ function parseId(value) {
 }
 
 async function removeProof(value) {
-  const objectPath = proofObjectPath(value);
+  const objectPath = proofObjectPath(value, { mode: 'compat' });
   if (!objectPath) return;
   try {
-    await storage.remove(objectPath);
+    await storage.remove('payment_proof', objectPath);
   } catch (error) {
     console.error('Gagal menghapus bukti pembayaran:', error.message);
   }
@@ -48,6 +62,63 @@ async function getAccountDetails(connection) {
     connection
   );
   return Object.fromEntries(rows.map((row) => [row.key, row.value]));
+}
+
+function formatRekening(rekening) {
+  return {
+    bank: rekening.rekening_bank || '',
+    nomor: rekening.rekening_nomor || '',
+    pemilik: rekening.rekening_pemilik || ''
+  };
+}
+
+async function hasEligibleCustomerPayment(userId, connection) {
+  const row = await db.get(`
+    SELECT s.id
+    FROM spk s
+    INNER JOIN pelanggan c ON c.id = s.pelanggan_id
+    LEFT JOIN pembayaran p ON p.spk_id = s.id
+    WHERE c.user_id = ?
+      AND s.status = 'Selesai'
+      AND s.mitra_id IS NULL
+      AND s.total > 0
+      AND (p.id IS NULL OR p.status = 'Ditolak')
+    LIMIT 1
+  `, [userId], connection);
+  return Boolean(row);
+}
+
+async function hasEligibleMitraInvoice(mitraId, connection) {
+  if (!mitraId) return false;
+  const row = await db.get(`
+    SELECT i.id
+    FROM invoice_mitra i
+    WHERE i.mitra_id = ?
+      AND i.status = 'Belum Dibayar'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM audit_log e
+        WHERE e.entity_type = 'invoice_mitra'
+          AND e.entity_id = i.id
+          AND e.action = 'payment_reported'
+          AND e.id = (
+            SELECT MAX(e2.id)
+            FROM audit_log e2
+            WHERE e2.entity_type = 'invoice_mitra'
+              AND e2.entity_id = i.id
+              AND e2.action IN ('payment_reported', 'payment_verified', 'payment_rejected')
+          )
+      )
+    LIMIT 1
+  `, [mitraId], connection);
+  return Boolean(row);
+}
+
+async function canViewRekening(user, connection) {
+  if (user.role === 'admin') return true;
+  if (user.role === 'pelanggan') return hasEligibleCustomerPayment(user.id, connection);
+  if (user.role === 'mitra') return hasEligibleMitraInvoice(user.mitra_id, connection);
+  return false;
 }
 
 async function loadPayableOrder(req, res, next) {
@@ -85,38 +156,26 @@ async function loadPayableOrder(req, res, next) {
 }
 
 router.get('/me', auth(['pelanggan']), async (req, res) => {
-  const [orders, rekening] = await Promise.all([
-    db.all(`
-      SELECT s.id AS spk_id, s.no_spk, s.plat_nomor, s.merk_tipe, s.total,
-             p.id AS pembayaran_id, p.nominal, p.metode, p.status AS status_pembayaran,
-             p.catatan_admin, p.submitted_at, p.confirmed_at,
-             (p.bukti_path IS NOT NULL) AS has_bukti
-      FROM spk s
-      INNER JOIN pelanggan c ON c.id = s.pelanggan_id
-      LEFT JOIN pembayaran p ON p.spk_id = s.id
-      WHERE c.user_id = ?
-        AND s.status = 'Selesai' AND s.mitra_id IS NULL
-      ORDER BY s.id DESC
-    `, [req.user.id]),
-    getAccountDetails()
-  ]);
-  res.json({
-    rekening: {
-      bank: rekening.rekening_bank || '',
-      nomor: rekening.rekening_nomor || '',
-      pemilik: rekening.rekening_pemilik || ''
-    },
-    pembayaran: orders
-  });
+  const orders = await db.all(`
+    SELECT s.id AS spk_id, s.no_spk, s.plat_nomor, s.merk_tipe, s.total,
+           p.id AS pembayaran_id, p.nominal, p.metode, p.status AS status_pembayaran,
+           p.catatan_admin, p.submitted_at, p.confirmed_at,
+           (p.bukti_path IS NOT NULL) AS has_bukti
+    FROM spk s
+    INNER JOIN pelanggan c ON c.id = s.pelanggan_id
+    LEFT JOIN pembayaran p ON p.spk_id = s.id
+    WHERE c.user_id = ?
+      AND s.status = 'Selesai' AND s.mitra_id IS NULL
+    ORDER BY s.id DESC
+  `, [req.user.id]);
+  // Rekening hanya dimuat on-demand via GET /rekening saat tombol Bayar ditekan.
+  res.json({ rekening: null, pembayaran: orders });
 });
 
-router.get('/rekening', auth(['admin']), async (_req, res) => {
-  const rekening = await getAccountDetails();
-  res.json({
-    bank: rekening.rekening_bank || '',
-    nomor: rekening.rekening_nomor || '',
-    pemilik: rekening.rekening_pemilik || ''
-  });
+router.get('/rekening', auth(['admin', 'mitra', 'pelanggan']), async (req, res) => {
+  const allowed = await canViewRekening(req.user);
+  if (!allowed) return res.status(403).json({ error: 'Akses ditolak' });
+  res.json(formatRekening(await getAccountDetails()));
 });
 
 router.put('/rekening', auth(['admin']), async (req, res) => {
@@ -140,6 +199,7 @@ router.put('/rekening', auth(['admin']), async (req, res) => {
         connection
       );
     }
+    await writeAudit('pengaturan', null, 'rekening_update', req.user, { keys: Object.keys(rekening) }, connection);
   });
   res.json({ message: 'Informasi rekening berhasil disimpan' });
 });
@@ -158,9 +218,12 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
   }
 
   const extension = path.extname(req.file.originalname).toLowerCase();
-  const objectPath = `payment-proofs/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
+  const spkId = req.paymentOrder.id;
+  const objectPath = `payment-proofs/${spkId}/${Date.now()}-${crypto.randomBytes(12).toString('hex')}${extension}`;
+  let storedPath;
   try {
-    await storage.upload(objectPath, req.file.buffer, req.file.mimetype);
+    const uploadResult = await storage.upload('payment_proof', objectPath, req.file.buffer, req.file.mimetype);
+    storedPath = typeof uploadResult === 'string' ? uploadResult : uploadResult.objectPath;
   } catch (error) {
     console.error('[UPLOAD] gagal menyimpan bukti pembayaran:', error.message);
     return res.status(503).json({ error: 'Gagal menyimpan bukti. Coba lagi nanti.' });
@@ -199,14 +262,14 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
               status = 'Menunggu Konfirmasi', catatan_admin = NULL,
               submitted_at = CURRENT_TIMESTAMP, confirmed_at = NULL, confirmed_by = NULL
           WHERE id = ?
-        `, [Number(order.total), objectPath, existing.id], connection);
+        `, [Number(order.total), storedPath, existing.id], connection);
         return db.get('SELECT * FROM pembayaran WHERE id = ?', [existing.id], connection);
       }
 
       const result = await db.run(`
         INSERT INTO pembayaran (spk_id, nominal, metode, bukti_path, status)
         VALUES (?, ?, 'Transfer Bank', ?, 'Menunggu Konfirmasi')
-      `, [order.id, Number(order.total), objectPath], connection);
+      `, [order.id, Number(order.total), storedPath], connection);
       return db.get('SELECT * FROM pembayaran WHERE id = ?', [result.insertId], connection);
     });
 
@@ -219,7 +282,7 @@ router.post('/:spkId/bukti', auth(['pelanggan']), loadPayableOrder, (req, res, n
       submitted_at: payment.submitted_at
     });
   } catch (error) {
-    await storage.remove(objectPath).catch(() => {});
+    await storage.remove('payment_proof', objectPath).catch(() => {});
     throw error;
   }
 });
@@ -258,19 +321,30 @@ router.get('/:id/bukti', auth(['admin', 'pelanggan']), async (req, res) => {
     return res.status(403).json({ error: 'Anda tidak memiliki akses ke bukti pembayaran ini' });
   }
 
-  const objectPath = proofObjectPath(payment.bukti_path);
+  const objectPath = proofObjectPath(payment.bukti_path, { mode: 'compat' });
   if (!objectPath) return res.status(404).json({ error: 'Bukti pembayaran tidak ditemukan' });
 
   let bytes;
+  let contentType;
   try {
-    bytes = await storage.download(objectPath);
+    const downloadResult = await storage.download('payment_proof', objectPath);
+    bytes = Buffer.isBuffer(downloadResult) ? downloadResult : downloadResult?.bytes;
+    contentType = (!Buffer.isBuffer(downloadResult) && downloadResult?.contentType)
+      ? downloadResult.contentType
+      : storage.contentTypeForPath(objectPath);
   } catch (error) {
     console.error('[DOWNLOAD] gagal membaca bukti pembayaran:', error.message);
     return res.status(404).json({ error: 'Bukti pembayaran tidak tersedia' });
   }
 
-  res.setHeader('Content-Type', storage.contentTypeForPath(objectPath));
+  if (!Buffer.isBuffer(bytes)) {
+    return res.status(404).json({ error: 'Bukti pembayaran tidak tersedia' });
+  }
+
+  res.setHeader('Content-Type', contentType);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Pragma', 'no-cache');
   res.send(bytes);
 });
 
@@ -325,16 +399,9 @@ router.patch('/:id/status', auth(['admin']), async (req, res) => {
       `, [`Pembayaran ${payment.no_spk}`, Number(payment.nominal), payment.spk_id], connection);
     }
 
-    await db.run(`
-      INSERT INTO audit_log (entity_type, entity_id, action, actor_id, actor_role, detail)
-      VALUES ('pembayaran', ?, ?, ?, ?, ?)
-    `, [
-      paymentId,
-      status === 'Dikonfirmasi' ? 'payment_confirmed' : 'payment_rejected',
-      req.user.id,
-      req.user.role,
-      JSON.stringify({ spk_id: payment.spk_id, no_spk: payment.no_spk, nominal: payment.nominal, catatan_admin: note || null })
-    ], connection);
+    await writeAudit('pembayaran', paymentId, status === 'Dikonfirmasi' ? 'payment_confirmed' : 'payment_rejected', req.user, {
+      spk_id: payment.spk_id, no_spk: payment.no_spk, nominal: payment.nominal, catatan_admin: note || null
+    }, connection);
 
     return db.get('SELECT * FROM pembayaran WHERE id = ?', [paymentId], connection);
   });

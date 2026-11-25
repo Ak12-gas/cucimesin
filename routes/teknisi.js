@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
+const { writeAudit } = require('../utils/audit');
 const { defaultChecklist } = require('../utils/helper');
 const router = express.Router();
 
@@ -60,6 +61,7 @@ router.post('/', auth(['admin']), async (req, res) => {
       'INSERT INTO users (nama, email, telepon, password, role, aktif) VALUES (?, ?, ?, ?, ?, ?)', 
       [nama, email || null, telepon, hash, 'teknisi', aktif]
     );
+    await writeAudit('user', result.insertId, 'teknisi_create', req.user, { id: result.insertId, role: 'teknisi' });
     res.status(201).json({ id: result.insertId, message: 'Teknisi berhasil ditambahkan' });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Email atau telepon sudah terdaftar' });
@@ -96,6 +98,11 @@ router.put('/:id', auth(['admin']), async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Data teknisi tidak ditemukan' });
     }
+    const teknisiId = Number(req.params.id);
+    await writeAudit('user', teknisiId, 'teknisi_update', req.user, {
+      id: teknisiId,
+      fields: ['nama', 'email', 'telepon', 'aktif', ...(password ? ['password'] : [])]
+    });
     res.json({ message: 'Data teknisi berhasil diperbarui' });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -117,6 +124,7 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
     return res.status(404).json({ error: 'Teknisi tidak ditemukan' });
   }
 
+  await writeAudit('user', teknisiId, 'teknisi_delete', req.user, { id: teknisiId, role: 'teknisi' });
   res.json({ message: 'Teknisi berhasil dihapus' });
 });
 
